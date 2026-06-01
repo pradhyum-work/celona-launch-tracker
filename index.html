@@ -247,7 +247,7 @@ async function loadBuf(buf){
 
 /* editable cells */
 const eIn=(ref,i,fld,v,cls)=>`<input class="cell ${cls||''}" data-ref="${ref}" data-i="${i}" data-f="${fld}" value="${escA(v)}">`;
-const eDate=(ref,i,fld,d)=>`<input type="date" class="cell tgt ${d&&d<TODAY?'past':''}" data-ref="${ref}" data-i="${i}" data-f="${fld}" value="${isoD(d)}">`;
+const eDate=(ref,i,fld,d)=>{const done=isDone((arrFor(ref)[i]||{}).status);return `<input type="date" class="cell tgt ${(!done&&d&&d<TODAY)?'past':''}" data-ref="${ref}" data-i="${i}" data-f="${fld}" value="${isoD(d)}">`;};
 const eStatus=(ref,i,v)=>`<select class="st chip ${stClass(v)}" data-ref="${ref}" data-i="${i}" data-f="status">${STATUSES.map(s=>`<option ${s===v||(s==='Complete'&&isDone(v))?'selected':''}>${s}</option>`).join("")}</select>`;
 const ePrio=(ref,i,v)=>`<select class="pr chip ${prClass(v)}" data-ref="${ref}" data-i="${i}" data-f="priority">${PRIOS.map(p=>`<option value="${p}" ${p===v?'selected':''}>${p||'—'}</option>`).join("")}</select>`;
 const pcell=(ref,i,fld,v)=>{const unk=unknownNames(v).length;return `<div class="people${unk?' unk':''}" data-pick data-ref="${ref}" data-i="${i}" data-f="${fld}" title="${unk?'Not in contacts: '+escA(unknownNames(v).join(', ')):'Click to choose people'}">${v?esc(v):'<span class=\"ph\">+ add</span>'}</div>`;};
