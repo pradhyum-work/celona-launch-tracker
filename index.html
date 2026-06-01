@@ -129,10 +129,10 @@ let EMAILS=loadEmails();
 let autosave=(localStorage.getItem("celona2_autosave")==="1"),asTimer=null;
 let publishHandle=null,pending=loadPending(),pendingDel=loadDel();
 const SHEET={tasks:"Tasks",pages:"Web Pages",docs:"Documents"};
-const COLMAP={tasks:{deliverable:4,owner:5,stakeholders:6,status:7,priority:8,target:9,notes:10,link:11},
+const COLMAP={tasks:{deliverable:3,owner:4,stakeholders:5,status:6,priority:7,target:8,notes:9,link:10},
               pages:{page:2,owner:5,stakeholders:6,status:7,priority:8,target:9,notes:10,link:11},
               docs:{document:2,owner:4,stakeholders:5,status:6,priority:7,target:8,notes:9,link:10}};
-const DATECOL={tasks:9,pages:9,docs:8};
+const DATECOL={tasks:8,pages:9,docs:8};
 let gsort={pages:null,docs:null}; // {field,dir} per grid
 function loadPending(){try{return JSON.parse(localStorage.getItem("celona2_pending")||"{}");}catch(e){return {};}}
 function savePending(){try{localStorage.setItem("celona2_pending",JSON.stringify(pending));}catch(e){}}
@@ -195,7 +195,7 @@ async function loadBuf(buf){
   workbook=XLSX.read(buf,{cellDates:true});
   const T=rowsOf("Tasks");tasks=[];
   for(let i=1;i<T.length;i++){const r=T[i];if(!r||!String(r[0]||"").trim())continue;
-    tasks.push({id:r[0],category:r[1]||"",subcategory:r[2]||"",deliverable:r[3]||"",owner:r[4]||"",stakeholders:r[5]||"",status:(String(r[6]||"").trim()||"Not Started"),priority:String(r[7]||"").trim(),target:excelToDate(r[8]),notes:r[9]||"",link:r[10]||""});}
+    tasks.push({id:r[0],category:r[1]||"",deliverable:r[2]||"",owner:r[3]||"",stakeholders:r[4]||"",status:(String(r[5]||"").trim()||"Not Started"),priority:String(r[6]||"").trim(),target:excelToDate(r[7]),notes:r[8]||"",link:r[9]||""});}
   const P=rowsOf("Web Pages");pages=[];
   for(let i=1;i<P.length;i++){const r=P[i];if(!r||!String(r[0]||"").trim())continue;
     pages.push({id:r[0],page:r[1]||"",section:r[2]||"",bucket:r[3]||"",owner:r[4]||"",stakeholders:r[5]||"",status:(String(r[6]||"").trim()||"Not Started"),priority:String(r[7]||"").trim(),target:excelToDate(r[8]),notes:r[9]||"",link:r[10]||""});}
@@ -264,7 +264,6 @@ const fSel=(id,opts)=>`<select id="${id}">${opts.map(o=>`<option>${o}</option>`)
 function addTask(){fields(`<h2>Add task</h2>
   <div class="frow"><label>Deliverable*</label>${fIn("ad")}</div>
   <div class="frow"><label>Category</label><input id="ac" list="catlist" placeholder="Category"></div>
-  <div class="frow"><label>Subcategory</label>${fIn("asub")}</div>
   <div class="frow"><label>Owner</label>${fIn("ao","name(s)",true)}</div>
   <div class="frow"><label>Stakeholders</label>${fIn("ast","comma-separated",true)}</div>
   <div class="frow"><label>Status</label>${fSel("astatus",STATUSES)}</div>
@@ -275,8 +274,8 @@ function addTask(){fields(`<h2>Add task</h2>
   <datalist id="catlist">${CAT_ORDER.map(c=>`<option>${c}</option>`).join("")}</datalist>`,()=>{
     const d=$("#ad").value.trim();if(!d){alert("Deliverable required");return;}
     const id=nextId(tasks,"T",2),tg=$("#atg").value?new Date($("#atg").value+"T00:00:00"):null;
-    const o={id,category:$("#ac").value.trim()||"(uncategorized)",subcategory:$("#asub").value.trim(),deliverable:d,owner:$("#ao").value.trim(),stakeholders:$("#ast").value.trim(),status:$("#astatus").value,priority:$("#apr").value,target:tg,notes:$("#an").value.trim(),link:$("#al").value.trim()};
-    tasks.push(o);["status","owner","stakeholders","priority","target","notes","link"].forEach(fl=>recordPending("tasks",id,fl,fl==="target"?($("#atg").value||""):o[fl]));
+    const o={id,category:$("#ac").value.trim()||"(uncategorized)",deliverable:d,owner:$("#ao").value.trim(),stakeholders:$("#ast").value.trim(),status:$("#astatus").value,priority:$("#apr").value,target:tg,notes:$("#an").value.trim(),link:$("#al").value.trim()};
+    tasks.push(o);["deliverable","status","owner","stakeholders","priority","target","notes","link"].forEach(fl=>recordPending("tasks",id,fl,fl==="target"?($("#atg").value||""):o[fl]));
     markDirty();closeModal();view="cat";render();});}
 function addPage(){fields(`<h2>Add web page</h2>
   <div class="frow"><label>Page*</label>${fIn("pp")}</div>
@@ -337,7 +336,7 @@ function setView(v){view=v;f={q:"",status:"",owner:"",prio:"",section:"",bucket:
 function matchTask(t){const q=f.q.toLowerCase();
   if(f.status&&t.status!==f.status)return false;if(f.prio&&prClass(t.priority)!==f.prio)return false;
   if(f.owner&&!String(t.owner+" "+t.stakeholders).toLowerCase().includes(f.owner.toLowerCase()))return false;
-  if(q&&!(`${t.id} ${t.deliverable} ${t.owner} ${t.stakeholders} ${t.notes} ${t.category} ${t.subcategory}`.toLowerCase().includes(q)))return false;return true;}
+  if(q&&!(`${t.id} ${t.deliverable} ${t.owner} ${t.stakeholders} ${t.notes} ${t.category}`.toLowerCase().includes(q)))return false;return true;}
 function filterbar(){return `<div class="viewbar"><input id="q" placeholder="Search…" value="${escA(f.q)}">
   <select id="fstatus"><option value="">All statuses</option>${STATUSES.map(s=>`<option ${f.status===s?'selected':''}>${s}</option>`).join("")}</select>
   <select id="fprio"><option value="">All priorities</option>${["P0","P1","P2","P3"].map(s=>`<option ${f.prio===s?'selected':''}>${s}</option>`).join("")}</select></div>`;}
@@ -348,8 +347,8 @@ function renderCat(){
     if(cat==="Documents"){html+=`<tr class="cat"><td colspan="9">Documents</td></tr>`+summaryRow("Documents",docs,"docs");return;}
     const items=tasks.filter(t=>t.category===cat&&matchTask(t));const hasAny=tasks.some(t=>t.category===cat);
     if(!hasAny&&cat!=="Website")return;
-    html+=`<tr class="cat"><td colspan="9">${cat}</td></tr>`;let ls=null;
-    items.forEach(t=>{if(t.subcategory&&t.subcategory!==ls){html+=`<tr class="sub"><td colspan="9">${t.subcategory}</td></tr>`;ls=t.subcategory;}html+=taskRow(t);});
+    html+=`<tr class="cat"><td colspan="9">${cat}</td></tr>`;
+    items.forEach(t=>{html+=taskRow(t);});
     if(cat==="Website"){html+=`<tr class="sub"><td colspan="9">Web Pages — Phase 1 (${pages.length})</td></tr>`+summaryRow("Web Pages",pages,"pages");}
   });
   // any tasks whose category isn't in CAT_ORDER (e.g. newly added)
@@ -363,7 +362,7 @@ function taskRow(t){const i=tasks.indexOf(t);
     <td>${eDate("tasks",i,"target",t.target)}</td><td>${eIn("tasks",i,"notes",t.notes)}</td><td>${eLink("tasks",i,t.link)}</td></tr>`;}
 
 function unified(){const out=[];
-  tasks.forEach(t=>out.push({ref:"tasks",i:tasks.indexOf(t),id:t.id,name:t.deliverable,sub:t.category+(t.subcategory?" › "+t.subcategory:""),kind:"Task",owner:t.owner,stakeholders:t.stakeholders,status:t.status,priority:t.priority,target:t.target,notes:t.notes,link:t.link,hasP:true}));
+  tasks.forEach(t=>out.push({ref:"tasks",i:tasks.indexOf(t),id:t.id,name:t.deliverable,sub:t.category,kind:"Task",owner:t.owner,stakeholders:t.stakeholders,status:t.status,priority:t.priority,target:t.target,notes:t.notes,link:t.link,hasP:true}));
   docs.forEach(d=>{if(d.target)out.push({ref:"docs",i:docs.indexOf(d),id:d.id,name:d.document,sub:"Documents › "+d.group,kind:"Doc",owner:d.owner,stakeholders:d.stakeholders,status:d.status,priority:d.priority,target:d.target,notes:d.notes,link:d.link,hasP:true});});
   pages.forEach(p=>{if(p.target)out.push({ref:"pages",i:pages.indexOf(p),id:p.id,name:p.page,sub:"Web Pages › "+p.bucket,kind:"Page",owner:p.owner,stakeholders:p.stakeholders,status:p.status,priority:p.priority,target:p.target,notes:p.notes,link:p.link,hasP:true});});
   return out;}
@@ -438,9 +437,9 @@ function wireFilters(){
 /* save */
 function aoaDates(ws,col,n){for(let r=2;r<=n+1;r++){const c=ws[col+r];if(c&&c.t==="d")c.z="yyyy-mm-dd";}}
 function buildSheets(){
-  const T=[["ID","Category","Subcategory","Deliverable","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"]];
-  tasks.forEach(t=>T.push([t.id,t.category,t.subcategory,t.deliverable,t.owner,t.stakeholders,t.status,t.priority,t.target||"",t.notes,t.link]));
-  const wsT=XLSX.utils.aoa_to_sheet(T,{cellDates:true});aoaDates(wsT,"I",tasks.length);workbook.Sheets["Tasks"]=wsT;
+  const T=[["ID","Category","Deliverable","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"]];
+  tasks.forEach(t=>T.push([t.id,t.category,t.deliverable,t.owner,t.stakeholders,t.status,t.priority,t.target||"",t.notes,t.link]));
+  const wsT=XLSX.utils.aoa_to_sheet(T,{cellDates:true});aoaDates(wsT,"H",tasks.length);workbook.Sheets["Tasks"]=wsT;
   const P=[["ID","Page","Section","Bucket","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"]];
   pages.forEach(p=>P.push([p.id,p.page,p.section,p.bucket,p.owner,p.stakeholders,p.status,p.priority,p.target||"",p.notes,p.link]));
   const wsP=XLSX.utils.aoa_to_sheet(P,{cellDates:true});aoaDates(wsP,"I",pages.length);workbook.Sheets["Web Pages"]=wsP;
@@ -467,7 +466,7 @@ async function linkOneDrive(){try{const [h]=await window.showOpenFilePicker({id:
   publishHandle=h;await idbSet("publishFile",h).catch(()=>{});refreshPublishUI();$("#fileinfo").textContent=fileName+" · OneDrive file linked ✓";
 }catch(e){if(e.name!=="AbortError")alert("Could not link: "+e.message);}}
 function fullRow(ref,id){const o=arrFor(ref).find(x=>String(x.id)===String(id));if(!o)return null;
-  if(ref==="tasks")return [o.id,o.category,o.subcategory,o.deliverable,o.owner,o.stakeholders,o.status,o.priority,o.target||"",o.notes,o.link];
+  if(ref==="tasks")return [o.id,o.category,o.deliverable,o.owner,o.stakeholders,o.status,o.priority,o.target||"",o.notes,o.link];
   if(ref==="pages")return [o.id,o.page,o.section,o.bucket,o.owner,o.stakeholders,o.status,o.priority,o.target||"",o.notes,o.link];
   return [o.id,o.document,o.group,o.owner,o.stakeholders,o.status,o.priority,o.target||"",o.notes,o.link];}
 async function publish(){
@@ -478,7 +477,7 @@ async function publish(){
     if((await publishHandle.requestPermission({mode:"readwrite"}))!=="granted"){alert("Write permission denied for the OneDrive file.");return;}
     $("#fileinfo").textContent=fileName+" · publishing…";
     const fl=await publishHandle.getFile();const wbW=XLSX.read(await fl.arrayBuffer(),{cellDates:true});
-    const HDRS={tasks:["ID","Category","Subcategory","Deliverable","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"],
+    const HDRS={tasks:["ID","Category","Deliverable","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"],
                 pages:["ID","Page","Section","Bucket","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"],
                 docs:["ID","Document","Group","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"]};
     const bySheet={};Object.values(pending).forEach(p=>{(bySheet[p.ref]=bySheet[p.ref]||[]).push(p);});
