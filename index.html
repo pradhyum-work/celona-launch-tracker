@@ -579,9 +579,9 @@ function openDraft(p){const by=dueSoonGroups();if(!by[p])return;const d=draftFor
 
 /* ---- Status update snapshot (Due this week / Completed this week / Next 2 weeks / High priority) ---- */
 function allItems(){return [
-  ...tasks.map(t=>({id:t.id,name:t.deliverable,owner:t.owner,status:t.status,priority:t.priority,target:t.target,kind:"Task"})),
-  ...docs.map(d=>({id:d.id,name:d.document,owner:d.owner,status:d.status,priority:d.priority,target:d.target,kind:"Doc"})),
-  ...pages.map(p=>({id:p.id,name:p.page,owner:p.owner,status:p.status,priority:p.priority,target:p.target,kind:"Page"}))];}
+  ...tasks.map(t=>({id:t.id,name:t.deliverable,owner:t.owner,status:t.status,priority:t.priority,target:t.target,link:t.link,kind:"Task"})),
+  ...docs.map(d=>({id:d.id,name:d.document,owner:d.owner,status:d.status,priority:d.priority,target:d.target,link:d.link,kind:"Doc"})),
+  ...pages.map(p=>({id:p.id,name:p.page,owner:p.owner,status:p.status,priority:p.priority,target:p.target,link:p.link,kind:"Page"}))];}
 function statusUpdate(){
   const now=new Date();
   const in7=new Date(TODAY);in7.setDate(in7.getDate()+7);
@@ -595,7 +595,7 @@ function statusUpdate(){
   const nxt=A.filter(t=>!isDone(t.status)&&t.target&&t.target>in7&&t.target<=in14).sort((a,b)=>tt(a.target)-tt(b.target));
   // High priority = open P0/P1 NOT already shown in Due this week or Next 2 weeks
   const shown=new Set([...due,...nxt].map(t=>t.id));
-  const hi=A.filter(t=>!isDone(t.status)&&prRank(t.priority)<=1&&!shown.has(t.id)).sort((a,b)=>tt(a.target)-tt(b.target));
+  const hi=A.filter(t=>!isDone(t.status)&&prRank(t.priority)<=1&&t.target&&!shown.has(t.id)).sort((a,b)=>tt(a.target)-tt(b.target));
   const stamp=now.toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
   const lDue=t=>`${niceD(t.target)} — ${t.name} — ${ow(t)}${t.target<TODAY?' [OVERDUE]':''}`;
   const lComp=t=>{const c=doneOn[t.id]?new Date(doneOn[t.id]+"T00:00:00"):t.target;return `${niceD(c)} — ${t.name} — ${ow(t)}`;};
@@ -603,11 +603,11 @@ function statusUpdate(){
   const lHi=t=>`${t.target?niceD(t.target):'no date'} — ${t.name} — ${ow(t)} — ${t.priority||'P?'}`;
   const secs=[["Due this week",due,lDue],["Completed this week",comp,lComp],["Next 2 weeks",nxt,lNext],["High priority (P0 / P1)",hi,lHi]];
   let text=`Celona 2.0 Launch — Status Update\nAs of ${stamp}\n`;
-  secs.forEach(([title,arr,fn])=>{text+=`\n${title.toUpperCase()} (${arr.length})\n`+(arr.length?arr.map(t=>"• "+fn(t)).join("\n"):"• (none)")+"\n";});
+  secs.forEach(([title,arr,fn])=>{text+=`\n${title.toUpperCase()} (${arr.length})\n`+(arr.length?arr.map(t=>"• "+fn(t)+(t.link?(" — "+t.link):"")).join("\n"):"• (none)")+"\n";});
   text+=`\nCutover Jul 13 · Internal launch Jul 15 · External announcement Jul 22, 2026`;
   let html=`<h2>Status Update <span class="status" style="font-weight:400">— snapshot ${esc(stamp)}</span></h2>`;
   secs.forEach(([title,arr,fn])=>{html+=`<div style="margin-top:12px"><b>${esc(title)}</b> <span class="status">(${arr.length})</span>`+
-    (arr.length?`<ul style="margin:6px 0 0;padding-left:20px;line-height:1.5">`+arr.map(t=>`<li>${esc(fn(t))}</li>`).join("")+`</ul>`:`<div class="status" style="margin-top:4px">None</div>`)+`</div>`;});
+    (arr.length?`<ul style="margin:6px 0 0;padding-left:20px;line-height:1.5">`+arr.map(t=>`<li>${esc(fn(t))}${t.link?` &middot; <a href="${escA(t.link)}" target="_blank">link</a>`:""}</li>`).join("")+`</ul>`:`<div class="status" style="margin-top:4px">None</div>`)+`</div>`;});
   html+=`<div style="margin-top:16px"><button class="btn" id="suMail">✉ Open email draft</button> <button class="btn alt" id="suCopy">Copy text</button> <span id="suMsg" class="status"></span></div>`;
   modal(html);
   const subj="[Celona 2.0] Launch status update — "+niceD(TODAY);
