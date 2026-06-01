@@ -47,7 +47,7 @@ a.url{color:var(--blue);text-decoration:none}a.url:hover{text-decoration:underli
 .chip{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600}
 .c-ns{background:var(--nsbg);color:var(--ns)}.c-ip{background:var(--ipbg);color:var(--ip)}.c-bl{background:var(--blkbg);color:var(--blk)}.c-cp{background:var(--okbg);color:var(--ok)}
 select.st,select.pr{border:none;font-weight:600;border-radius:20px;padding:3px 8px;font-size:11.5px}
-.pr.P0{background:var(--p0bg);color:var(--p0)}.pr.P1{background:var(--p1bg);color:var(--p1)}.pr.P2{background:var(--p2bg);color:var(--p2)}.pr.P3{background:var(--p3bg);color:var(--p3)}.pr.PN{background:#fff;color:var(--muted)}
+.pr.P0{background:var(--p0bg);color:var(--p0)}.pr.P1{background:var(--p1bg);color:var(--p1)}.pr.P2{background:var(--p2bg);color:var(--p2)}.pr.P3{background:var(--p3bg);color:var(--p3)}.pr.P6{background:var(--okbg);color:var(--ok)}.pr.PN{background:#fff;color:var(--muted)}
 input.cell{width:100%;border:1px solid transparent;background:transparent;padding:5px 6px;border-radius:6px}
 input.cell:hover{border-color:var(--line)}input.cell:focus{border-color:var(--blue);background:#fff}
 input.tgt{width:135px}.past{color:var(--red);font-weight:700}
@@ -106,7 +106,7 @@ input.tgt{width:135px}.past{color:var(--red);font-weight:700}
 <style id="colstyle"></style>
 <script>
 const STATUSES=["Not Started","In Progress","Blocked","Complete"];
-const PRIOS=["","P0 - Urgent","P1","P2","P3"];
+const PRIOS=["","P0 - Urgent","P1","P2","P3","P6 - Done"];
 // Contacts are NOT embedded here (keeps this file free of personal data so it can be hosted/shared safely).
 // They load at runtime from the workbook's "Contacts" tab (Name | Email | Group). See applyContacts().
 let CONTACTS=[];
@@ -204,8 +204,8 @@ const isoD=d=>d?`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${
 const niceD=d=>d?d.toLocaleDateString('en-US',{month:'short',day:'numeric'}):'—';
 const stClass=s=>({"Complete":"c-cp","Completed":"c-cp","Done":"c-cp","In Progress":"c-ip","Blocked":"c-bl"})[(s||"").trim()]||"c-ns";
 const isDone=s=>["Complete","Completed","Done"].includes((s||"").trim());
-const prClass=p=>{const m=String(p||"").match(/P([0-3])/);return m?("P"+m[1]):"PN";};
-const prRank=p=>{const m=String(p||"").match(/P([0-3])/);return m?+m[1]:9;};
+const prClass=p=>{const m=String(p||"").match(/P([0-6])/);return m?("P"+m[1]):"PN";};
+const prRank=p=>{const m=String(p||"").match(/P([0-6])/);return m?+m[1]:9;};
 const esc=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;");
 const escA=s=>String(s==null?"":s).replace(/"/g,"&quot;").replace(/</g,"&lt;");
 const arrFor=r=>({tasks,pages,docs}[r]);
@@ -258,7 +258,7 @@ function bind(){
       if(fld==="target")o.target=el.value?new Date(el.value+"T00:00:00"):null;else o[fld]=el.value;
       recordPending(el.dataset.ref,o.id,fld,el.value);markDirty();
       if(fld==="status"){el.className="st chip "+stClass(el.value);
-        if(isDone(el.value)){if(!doneOn[o.id])doneOn[o.id]=isoD(TODAY);}else{delete doneOn[o.id];}saveDoneOn();}
+        if(isDone(el.value)){if(!doneOn[o.id])doneOn[o.id]=isoD(TODAY);o.priority="P6 - Done";recordPending(el.dataset.ref,o.id,"priority","P6 - Done");}else{delete doneOn[o.id];}saveDoneOn();}
       if(fld==="priority")el.className="pr chip "+prClass(el.value);
       // re-bucket / re-sort live when a field that affects ordering changes
       if(el.tagName==="SELECT"||fld==="target")render();});});
