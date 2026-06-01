@@ -565,6 +565,11 @@ function owaDraft(to,cc,subj,body){ // open an editable Outlook (OWA) compose dr
   if(cc&&cc.length)u+="&cc="+encodeURIComponent(cc.join(","));
   u+="&subject="+encodeURIComponent(subj)+"&body="+encodeURIComponent(body);
   window.open(u,"_blank");}
+async function copyHtml(html,plain){ // rich clipboard: preserves formatting + links when pasted into Outlook
+  try{if(navigator.clipboard&&window.ClipboardItem){
+      await navigator.clipboard.write([new ClipboardItem({"text/html":new Blob([html],{type:"text/html"}),"text/plain":new Blob([plain],{type:"text/plain"})})]);return true;}}catch(e){}
+  try{if(navigator.clipboard){await navigator.clipboard.writeText(plain);return "plain";}}catch(e){}
+  return false;}
 function dueSoonGroups(){const horizon=new Date(TODAY);horizon.setDate(horizon.getDate()+14);
   const all=[...tasks.map(t=>({...t,name:t.deliverable})),...docs.map(d=>({...d,name:d.document})),...pages.map(p=>({...p,name:p.page}))];
   const by={};all.forEach(t=>{if(isDone(t.status)||!t.target||t.target>horizon)return;names(t.owner).forEach(p=>{(by[p]=by[p]||[]).push(t);});});return by;}
@@ -615,14 +620,24 @@ function statusUpdate(){
   let text=`Celona 2.0 Launch — Status Update\nAs of ${stamp}\n`;
   secs.forEach(([title,arr,fn])=>{text+=`\n${title.toUpperCase()} (${arr.length})\n`+(arr.length?arr.map(t=>"• "+fn(t)+(t.link?(" — "+t.link):"")).join("\n"):"• (none)")+"\n";});
   text+=`\nCutover Jul 13 · Internal launch Jul 15 · External announcement Jul 22, 2026`;
+  // Rich HTML body (inline styles so it survives a paste into Outlook): bold sections, bullets, clickable links.
+  let emailHtml=`<div style="font-family:Segoe UI,Arial,sans-serif;font-size:14px;color:#1a1a1a">`+
+    `<p style="margin:0 0 2px"><b>Celona 2.0 Launch — Status Update</b></p>`+
+    `<p style="margin:0 0 10px;color:#666;font-size:12px">As of ${esc(stamp)}</p>`;
+  secs.forEach(([title,arr,fn])=>{emailHtml+=`<p style="margin:14px 0 4px"><b>${esc(title.toUpperCase())} (${arr.length})</b></p>`+
+    (arr.length?`<ul style="margin:0;padding-left:20px;line-height:1.5">`+arr.map(t=>`<li>${esc(fn(t))}${t.link?` &middot; <a href="${escA(t.link)}">link</a>`:""}</li>`).join("")+`</ul>`:`<p style="margin:0;color:#888">(none)</p>`);});
+  emailHtml+=`<p style="margin:14px 0 0;color:#666;font-size:12px">Cutover Jul 13 · Internal launch Jul 15 · External announcement Jul 22, 2026</p></div>`;
   let html=`<h2>Status Update <span class="status" style="font-weight:400">— snapshot ${esc(stamp)}</span></h2>`;
   secs.forEach(([title,arr,fn])=>{html+=`<div style="margin-top:12px"><b>${esc(title)}</b> <span class="status">(${arr.length})</span>`+
     (arr.length?`<ul style="margin:6px 0 0;padding-left:20px;line-height:1.5">`+arr.map(t=>`<li>${esc(fn(t))}${t.link?` &middot; <a href="${escA(t.link)}" target="_blank">link</a>`:""}</li>`).join("")+`</ul>`:`<div class="status" style="margin-top:4px">None</div>`)+`</div>`;});
-  html+=`<div style="margin-top:16px"><button class="btn" id="suMail">✉ Open email draft</button> <button class="btn alt" id="suCopy">Copy text</button> <span id="suMsg" class="status"></span></div>`;
+  html+=`<div style="margin-top:16px"><button class="btn" id="suMail">✉ Open draft + copy formatted</button> <button class="btn alt" id="suFmt">⧉ Copy formatted</button> <button class="btn alt" id="suCopy">Copy text</button> <span id="suMsg" class="status"></span></div>`+
+    `<p class="status" style="margin-top:8px">Outlook's compose link only carries plain text, so the formatted version is placed on your clipboard — paste it into the draft body with Ctrl/⌘+V to keep the bold sections and clickable links.</p>`;
   modal(html);
   const subj="[Celona 2.0] Launch status update — "+niceD(TODAY);
-  $("#suMail").onclick=()=>owaDraft([],EMAILS.cc?[EMAILS.cc]:[],subj,text);
-  $("#suCopy").onclick=()=>{if(navigator.clipboard)navigator.clipboard.writeText(text);$("#suMsg").textContent="Copied ✓";};
+  $("#suMail").onclick=async()=>{const r=await copyHtml(emailHtml,text);owaDraft([],EMAILS.cc?[EMAILS.cc]:[],subj,"");
+    $("#suMsg").textContent=r==="plain"?"Draft opened · text copied (paste with Ctrl/⌘+V)":(r?"Draft opened · formatted copied — paste with Ctrl/⌘+V":"Draft opened · copy failed, use Copy text");};
+  $("#suFmt").onclick=async()=>{const r=await copyHtml(emailHtml,text);$("#suMsg").textContent=r==="plain"?"Copied text ✓ (HTML unsupported here)":(r?"Formatted copied ✓ — paste into the draft":"Copy failed");};
+  $("#suCopy").onclick=()=>{if(navigator.clipboard)navigator.clipboard.writeText(text);$("#suMsg").textContent="Copied text ✓";};
 }
 
 /* wire */
