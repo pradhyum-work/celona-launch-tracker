@@ -43,7 +43,7 @@ td.deliv{font-weight:500;min-width:200px}
 td.deliv .ctag{display:block;font-size:10.5px;color:var(--muted);font-weight:400}
 a.url{color:var(--blue);text-decoration:none}a.url:hover{text-decoration:underline}
 .kind{display:inline-block;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:5px;margin-right:5px;vertical-align:middle}
-.kind.Task{background:#e7f8f4;color:#0c7a66}.kind.Doc{background:#fff1d6;color:#8a5a00}.kind.Page{background:#e8edff;color:#33489c}
+.kind.Task{background:#e7f8f4;color:#0c7a66}.kind.Doc{background:#fff1d6;color:#8a5a00}.kind.Page{background:#e8edff;color:#33489c}.kind.Foundation{background:#ede4ff;color:#5b3a9c}
 .chip{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600}
 .c-ns{background:var(--nsbg);color:var(--ns)}.c-ip{background:var(--ipbg);color:var(--ip)}.c-bl{background:var(--blkbg);color:var(--blk)}.c-cp{background:var(--okbg);color:var(--ok)}
 select.st,select.pr{border:none;font-weight:600;border-radius:20px;padding:3px 8px;font-size:11.5px}
@@ -128,15 +128,15 @@ const CAT_ORDER=["Launch Planning","Presentations","Press & Analysts","Video Col
 const TODAY=new Date();TODAY.setHours(0,0,0,0);
 const $=s=>document.querySelector(s);
 let workbook=null,fileHandle=null,fileName="",tasks=[],pages=[],docs=[],dirty=false,view="cat";
-let f={q:"",status:"",owner:"",prio:"",section:"",bucket:""};
+let f={q:"",status:"",owner:"",prio:"",type:"",section:"",bucket:""};
 let EMAILS=loadEmails();
 let autosave=(localStorage.getItem("celona2_autosave")==="1"),asTimer=null;
 let publishHandle=null,pending=loadPending(),pendingDel=loadDel();
 const SHEET={tasks:"Tasks",pages:"Web Pages",docs:"Documents"};
 const COLMAP={tasks:{deliverable:3,owner:4,stakeholders:5,status:6,priority:7,target:8,notes:9,link:10},
-              pages:{page:2,owner:5,stakeholders:6,status:7,priority:8,target:9,notes:10,link:11},
+              pages:{type:2,page:3,owner:6,stakeholders:7,status:8,priority:9,target:10,notes:11,link:12},
               docs:{document:2,owner:4,stakeholders:5,status:6,priority:7,target:8,notes:9,link:10}};
-const DATECOL={tasks:8,pages:9,docs:8};
+const DATECOL={tasks:8,pages:10,docs:8};
 let gsort={pages:null,docs:null}; // {field,dir} per grid
 let colHidden=loadColH(), colWidth=loadColW(); // per-view column show/hide + widths
 function loadColH(){try{return JSON.parse(localStorage.getItem("celona2_colhidden")||"{}");}catch(e){return{};}}
@@ -232,7 +232,7 @@ async function loadBuf(buf){
     tasks.push({id:r[0],category:r[1]||"",deliverable:r[2]||"",owner:r[3]||"",stakeholders:r[4]||"",status:(String(r[5]||"").trim()||"Not Started"),priority:String(r[6]||"").trim(),target:excelToDate(r[7]),notes:r[8]||"",link:r[9]||""});}
   const P=rowsOf("Web Pages");pages=[];
   for(let i=1;i<P.length;i++){const r=P[i];if(!r||!String(r[0]||"").trim())continue;
-    pages.push({id:r[0],page:r[1]||"",section:r[2]||"",bucket:r[3]||"",owner:r[4]||"",stakeholders:r[5]||"",status:(String(r[6]||"").trim()||"Not Started"),priority:String(r[7]||"").trim(),target:excelToDate(r[8]),notes:r[9]||"",link:r[10]||""});}
+    pages.push({id:r[0],type:r[1]||"Webpage",page:r[2]||"",section:r[3]||"",bucket:r[4]||"",owner:r[5]||"",stakeholders:r[6]||"",status:(String(r[7]||"").trim()||"Not Started"),priority:String(r[8]||"").trim(),target:excelToDate(r[9]),notes:r[10]||"",link:r[11]||""});}
   const D=rowsOf("Documents");docs=[];
   for(let i=1;i<D.length;i++){const r=D[i];if(!r||!String(r[0]||"").trim())continue;
     docs.push({id:r[0],document:r[1]||"",group:r[2]||"",owner:r[3]||"",stakeholders:r[4]||"",status:(String(r[5]||"").trim()||"Not Started"),priority:String(r[6]||"").trim(),target:excelToDate(r[7]),notes:r[8]||"",link:r[9]||""});}
@@ -250,6 +250,8 @@ const eIn=(ref,i,fld,v,cls)=>`<input class="cell ${cls||''}" data-ref="${ref}" d
 const eDate=(ref,i,fld,d)=>{const done=isDone((arrFor(ref)[i]||{}).status);return `<input type="date" class="cell tgt ${(!done&&d&&d<TODAY)?'past':''}" data-ref="${ref}" data-i="${i}" data-f="${fld}" value="${isoD(d)}">`;};
 const eStatus=(ref,i,v)=>`<select class="st chip ${stClass(v)}" data-ref="${ref}" data-i="${i}" data-f="status">${STATUSES.map(s=>`<option ${s===v||(s==='Complete'&&isDone(v))?'selected':''}>${s}</option>`).join("")}</select>`;
 const ePrio=(ref,i,v)=>`<select class="pr chip ${prClass(v)}" data-ref="${ref}" data-i="${i}" data-f="priority">${PRIOS.map(p=>`<option value="${p}" ${p===v?'selected':''}>${p||'—'}</option>`).join("")}</select>`;
+const TYPES=["Webpage","Website-Foundation"];
+const eType=(ref,i,v)=>`<select class="st chip c-ns" data-ref="${ref}" data-i="${i}" data-f="type">${TYPES.map(o=>`<option ${o===v?'selected':''}>${o}</option>`).join("")}</select>`;
 const pcell=(ref,i,fld,v)=>{const unk=unknownNames(v).length;return `<div class="people${unk?' unk':''}" data-pick data-ref="${ref}" data-i="${i}" data-f="${fld}" title="${unk?'Not in contacts: '+escA(unknownNames(v).join(', ')):'Click to choose people'}">${v?esc(v):'<span class=\"ph\">+ add</span>'}</div>`;};
 const eLink=(ref,i,v)=>`<div class="lnk">${v?`<a class="url" href="${escA(v)}" target="_blank" title="Open link">🔗</a>`:''}<input class="cell" data-ref="${ref}" data-i="${i}" data-f="link" value="${escA(v)}" placeholder="paste link"></div>`;
 function bind(){
@@ -313,6 +315,7 @@ function addTask(){fields(`<h2>Add task</h2>
     markDirty();closeModal();view="cat";render();});}
 function addPage(){fields(`<h2>Add web page</h2>
   <div class="frow"><label>Page*</label>${fIn("pp")}</div>
+  <div class="frow"><label>Type</label>${fSel("pty",TYPES)}</div>
   <div class="frow"><label>Section</label>${fIn("psec")}</div>
   <div class="frow"><label>Bucket</label>${fSel("pb",["Brand Refresh","Content + Brand Refresh","New"])}</div>
   <div class="frow"><label>Owner</label>${fIn("po","name(s)",true)}</div>
@@ -324,8 +327,8 @@ function addPage(){fields(`<h2>Add web page</h2>
   <div class="frow"><label>Link</label>${fIn("pl","SharePoint URL")}</div>`,()=>{
     const p=$("#pp").value.trim();if(!p){alert("Page required");return;}
     const id=nextId(pages,"W",3),tg=$("#ptg").value?new Date($("#ptg").value+"T00:00:00"):null;
-    const o={id,page:p,section:$("#psec").value.trim(),bucket:$("#pb").value,owner:$("#po").value.trim(),stakeholders:$("#pst").value.trim(),status:$("#pss").value,priority:$("#ppr").value,target:tg,notes:$("#pn").value.trim(),link:$("#pl").value.trim()};
-    pages.push(o);["owner","stakeholders","status","priority","target","notes","link"].forEach(fl=>recordPending("pages",id,fl,fl==="target"?($("#ptg").value||""):o[fl]));
+    const o={id,type:$("#pty").value,page:p,section:$("#psec").value.trim(),bucket:$("#pb").value,owner:$("#po").value.trim(),stakeholders:$("#pst").value.trim(),status:$("#pss").value,priority:$("#ppr").value,target:tg,notes:$("#pn").value.trim(),link:$("#pl").value.trim()};
+    pages.push(o);["type","owner","stakeholders","status","priority","target","notes","link"].forEach(fl=>recordPending("pages",id,fl,fl==="target"?($("#ptg").value||""):o[fl]));
     markDirty();closeModal();view="pages";render();});}
 function addDoc(){fields(`<h2>Add document</h2>
   <div class="frow"><label>Document*</label>${fIn("dd")}</div>
@@ -367,7 +370,7 @@ function render(){cards();
   document.querySelectorAll("#viewseg button").forEach(b=>b.classList.toggle("on",b.dataset.v===view));
   if(view==="cat")renderCat();else if(view==="due")renderDue();else if(view==="pages")renderGrid("pages");else renderGrid("docs");
   postRender();}
-function setView(v){view=v;f={q:"",status:"",owner:"",prio:"",section:"",bucket:""};render();}
+function setView(v){view=v;f={q:"",status:"",owner:"",prio:"",type:"",section:"",bucket:""};render();}
 function matchTask(t){const q=f.q.toLowerCase();
   if(f.status&&t.status!==f.status)return false;if(f.prio&&prClass(t.priority)!==f.prio)return false;
   if(f.owner&&!String(t.owner+" "+t.stakeholders).toLowerCase().includes(f.owner.toLowerCase()))return false;
@@ -379,12 +382,16 @@ function renderCat(){
   const head='<thead><tr><th>ID</th><th>Deliverable</th><th>Owner</th><th>Stakeholders</th><th>Status</th><th>Priority</th><th>Target</th><th>Notes</th><th>Link</th></tr></thead>';
   let html=filterbar()+'<table>'+head+'<tbody>';
   CAT_ORDER.forEach(cat=>{
-    if(cat==="Documents"){html+=`<tr class="cat"><td colspan="9">Documents</td></tr>`+summaryRow("Documents",docs,"docs");return;}
+    if(cat==="Documents"){html+=`<tr class="cat"><td colspan="9">Documents</td></tr>`+summaryRow("Documents",docs,"docs");
+      const wf=pages.filter(p=>p.type==="Website-Foundation");
+      html+=`<tr class="cat"><td colspan="9">Website-Foundation (${wf.length})</td></tr>`+summaryRow("Website-Foundation",wf,"due");return;}
     const items=tasks.filter(t=>t.category===cat&&matchTask(t));const hasAny=tasks.some(t=>t.category===cat);
     if(!hasAny&&cat!=="Website")return;
     html+=`<tr class="cat"><td colspan="9">${cat}</td></tr>`;
     items.forEach(t=>{html+=taskRow(t);});
-    if(cat==="Website"){html+=`<tr class="sub"><td colspan="9">Web Pages — Phase 1 (${pages.length})</td></tr>`+summaryRow("Web Pages",pages,"pages");}
+    if(cat==="Website"){
+      const wp=pages.filter(p=>p.type!=="Website-Foundation");
+      html+=`<tr class="sub"><td colspan="9">Web Pages (${wp.length})</td></tr>`+summaryRow("Web Pages",wp,"pages");}
   });
   // any tasks whose category isn't in CAT_ORDER (e.g. newly added)
   const extra=tasks.filter(t=>!CAT_ORDER.includes(t.category)&&matchTask(t));
@@ -399,7 +406,7 @@ function taskRow(t){const i=tasks.indexOf(t);
 function unified(){const out=[];
   tasks.forEach(t=>out.push({ref:"tasks",i:tasks.indexOf(t),id:t.id,name:t.deliverable,sub:t.category,kind:"Task",owner:t.owner,stakeholders:t.stakeholders,status:t.status,priority:t.priority,target:t.target,notes:t.notes,link:t.link,hasP:true}));
   docs.forEach(d=>{if(d.target)out.push({ref:"docs",i:docs.indexOf(d),id:d.id,name:d.document,sub:"Documents › "+d.group,kind:"Doc",owner:d.owner,stakeholders:d.stakeholders,status:d.status,priority:d.priority,target:d.target,notes:d.notes,link:d.link,hasP:true});});
-  pages.forEach(p=>{if(p.target)out.push({ref:"pages",i:pages.indexOf(p),id:p.id,name:p.page,sub:"Web Pages › "+p.bucket,kind:"Page",owner:p.owner,stakeholders:p.stakeholders,status:p.status,priority:p.priority,target:p.target,notes:p.notes,link:p.link,hasP:true});});
+  pages.forEach(p=>{if(p.target){const isF=p.type==="Website-Foundation";out.push({ref:"pages",i:pages.indexOf(p),id:p.id,name:p.page,sub:isF?"Website-Foundation":("Web Pages › "+p.bucket),kind:isF?"Foundation":"Page",owner:p.owner,stakeholders:p.stakeholders,status:p.status,priority:p.priority,target:p.target,notes:p.notes,link:p.link,hasP:true});}});
   return out;}
 function bucketOf(t){if(isDone(t.status))return 6;                 // completed -> bottom
   if(t.target&&t.target<TODAY)return 0;
@@ -438,16 +445,19 @@ function gridCmp(a,b,field,dir){
   return x<y?-dir:x>y?dir:0;}
 function renderGrid(kind){
   const isP=kind==="pages",arr=isP?pages:docs;
+  // Web Pages tab shows ONLY Type=Webpage; Website-Foundation lives in By Category / By Due Date.
+  const uni=isP?pages.filter(p=>p.type!=="Website-Foundation"):docs;
   const cols=isP?[["ID","id"],["Page","page"],["Section","section"],["Bucket","bucket"],["Owner","owner"],["Stakeholders","stakeholders"],["Status","status"],["Priority","priority"],["Target","target"],["Notes","notes"],["Link","link"]]
                 :[["ID","id"],["Document","document"],["Group","group"],["Owner","owner"],["Stakeholders","stakeholders"],["Status","status"],["Priority","priority"],["Target","target"],["Notes","notes"],["Link","link"]];
-  const secs=isP?[...new Set(pages.map(p=>p.section))]:[...new Set(docs.map(d=>d.group))];
-  const buckets=isP?[...new Set(pages.map(p=>p.bucket))]:[];
+  const secs=isP?[...new Set(uni.map(p=>p.section))].filter(Boolean):[...new Set(docs.map(d=>d.group))];
+  const buckets=isP?[...new Set(uni.map(p=>p.bucket))].filter(Boolean):[];
   let bar=`<div class="viewbar"><input id="q" placeholder="Search…" value="${escA(f.q)}">
-    <select id="fstatus"><option value="">All statuses</option>${STATUSES.map(s=>`<option ${f.status===s?'selected':''}>${s}</option>`).join("")}</select>
-    <select id="fsection"><option value="">${isP?'All sections':'All groups'}</option>${secs.map(s=>`<option ${f.section===s?'selected':''}>${esc(s)}</option>`).join("")}</select>`;
+    <select id="fstatus"><option value="">All statuses</option>${STATUSES.map(s=>`<option ${f.status===s?'selected':''}>${s}</option>`).join("")}</select>`;
+  bar+=`<select id="fsection"><option value="">${isP?'All sections':'All groups'}</option>${secs.map(s=>`<option ${f.section===s?'selected':''}>${esc(s)}</option>`).join("")}</select>`;
   if(isP)bar+=`<select id="fbucket"><option value="">All buckets</option>${buckets.map(s=>`<option ${f.bucket===s?'selected':''}>${esc(s)}</option>`).join("")}</select>`;
-  bar+=`<span class="status">${arr.length} ${isP?'pages':'documents'} · click a column to sort</span></div>`;
+  bar+=`<span class="status">${uni.length} ${isP?'pages':'documents'} · click a column to sort</span></div>`;
   let list=arr.filter(o=>{const q=f.q.toLowerCase();
+    if(isP&&o.type==="Website-Foundation")return false;
     if(f.status&&o.status!==f.status)return false;if(f.section&&(isP?o.section:o.group)!==f.section)return false;
     if(isP&&f.bucket&&o.bucket!==f.bucket)return false;if(q&&!JSON.stringify(o).toLowerCase().includes(q))return false;return true;});
   const s=gsort[kind];if(s)list=list.slice().sort((a,b)=>gridCmp(a,b,s.field,s.dir));
@@ -471,7 +481,7 @@ function renderGrid(kind){
 
 function wireFilters(){
   const q=$("#q");if(q)q.oninput=()=>{f.q=q.value;render();setTimeout(()=>{const e=$("#q");if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}},0);};
-  ["fstatus","fprio","fsection","fbucket"].forEach(id=>{const el=$("#"+id);if(el)el.onchange=()=>{f[id.replace("f","")]=el.value;render();};});}
+  ["fstatus","fprio","ftype","fsection","fbucket"].forEach(id=>{const el=$("#"+id);if(el)el.onchange=()=>{f[id.replace("f","")]=el.value;render();};});}
 
 /* save */
 function aoaDates(ws,col,n){for(let r=2;r<=n+1;r++){const c=ws[col+r];if(c&&c.t==="d")c.z="yyyy-mm-dd";}}
@@ -479,9 +489,9 @@ function buildSheets(){
   const T=[["ID","Category","Deliverable","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"]];
   tasks.forEach(t=>T.push([t.id,t.category,t.deliverable,t.owner,t.stakeholders,t.status,t.priority,t.target||"",t.notes,t.link]));
   const wsT=XLSX.utils.aoa_to_sheet(T,{cellDates:true});aoaDates(wsT,"H",tasks.length);workbook.Sheets["Tasks"]=wsT;
-  const P=[["ID","Page","Section","Bucket","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"]];
-  pages.forEach(p=>P.push([p.id,p.page,p.section,p.bucket,p.owner,p.stakeholders,p.status,p.priority,p.target||"",p.notes,p.link]));
-  const wsP=XLSX.utils.aoa_to_sheet(P,{cellDates:true});aoaDates(wsP,"I",pages.length);workbook.Sheets["Web Pages"]=wsP;
+  const P=[["ID","Type","Page","Section","Bucket","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"]];
+  pages.forEach(p=>P.push([p.id,p.type,p.page,p.section,p.bucket,p.owner,p.stakeholders,p.status,p.priority,p.target||"",p.notes,p.link]));
+  const wsP=XLSX.utils.aoa_to_sheet(P,{cellDates:true});aoaDates(wsP,"J",pages.length);workbook.Sheets["Web Pages"]=wsP;
   const D=[["ID","Document","Group","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"]];
   docs.forEach(d=>D.push([d.id,d.document,d.group,d.owner,d.stakeholders,d.status,d.priority,d.target||"",d.notes,d.link]));
   const wsD=XLSX.utils.aoa_to_sheet(D,{cellDates:true});aoaDates(wsD,"H",docs.length);workbook.Sheets["Documents"]=wsD;
@@ -506,7 +516,7 @@ async function linkOneDrive(){try{const [h]=await window.showOpenFilePicker({id:
 }catch(e){if(e.name!=="AbortError")alert("Could not link: "+e.message);}}
 function fullRow(ref,id){const o=arrFor(ref).find(x=>String(x.id)===String(id));if(!o)return null;
   if(ref==="tasks")return [o.id,o.category,o.deliverable,o.owner,o.stakeholders,o.status,o.priority,o.target||"",o.notes,o.link];
-  if(ref==="pages")return [o.id,o.page,o.section,o.bucket,o.owner,o.stakeholders,o.status,o.priority,o.target||"",o.notes,o.link];
+  if(ref==="pages")return [o.id,o.type,o.page,o.section,o.bucket,o.owner,o.stakeholders,o.status,o.priority,o.target||"",o.notes,o.link];
   return [o.id,o.document,o.group,o.owner,o.stakeholders,o.status,o.priority,o.target||"",o.notes,o.link];}
 async function publish(){
   if(!publishHandle){alert("Click 'Link OneDrive file' first and pick the (Working).xlsx.");return;}
@@ -517,7 +527,7 @@ async function publish(){
     $("#fileinfo").textContent=fileName+" · publishing…";
     const fl=await publishHandle.getFile();const wbW=XLSX.read(await fl.arrayBuffer(),{cellDates:true});
     const HDRS={tasks:["ID","Category","Deliverable","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"],
-                pages:["ID","Page","Section","Bucket","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"],
+                pages:["ID","Type","Page","Section","Bucket","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"],
                 docs:["ID","Document","Group","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"]};
     const bySheet={};Object.values(pending).forEach(p=>{(bySheet[p.ref]=bySheet[p.ref]||[]).push(p);});
     const delBy={};Object.keys(pendingDel).forEach(k=>{const[r,id]=k.split("|");(delBy[r]=delBy[r]||new Set()).add(id);});
