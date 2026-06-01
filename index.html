@@ -26,12 +26,14 @@ input,select{font:inherit;padding:7px 9px;border:1px solid var(--line);border-ra
 .stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 14px;min-width:78px}
 .stat .n{font-size:20px;font-weight:700}.stat .l{font-size:11px;color:var(--muted)}.stat.p0 .n{color:var(--p0)}
 table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
-th{background:var(--navy);color:#fff;text-align:left;padding:9px 10px;font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+th{background:var(--navy);color:#fff;text-align:left;padding:9px 10px;font-size:11px;text-transform:uppercase;letter-spacing:.4px;position:relative}
+.resizer{position:absolute;top:0;right:0;width:7px;height:100%;cursor:col-resize}
+.resizer:hover{background:#ffffff66}
 td{padding:5px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
 tr.cat td{background:var(--green);font-weight:700;color:#06302b;font-size:13px;padding:8px 10px}
 tr.sub td{background:var(--yellow);font-weight:600;color:#5a4500;font-size:12px;padding:6px 10px 6px 22px}
 tr.bucket td{background:var(--navy);color:#fff;font-weight:700;font-size:12.5px;padding:8px 10px}
-tr.bucket.overdue td{background:var(--red)}tr.bucket.week td{background:var(--amber)}tr.bucket.high td{background:#6941c6}
+tr.bucket.overdue td{background:var(--red)}tr.bucket.week td{background:var(--amber)}tr.bucket.high td{background:#6941c6}tr.bucket.done td{background:#0a7a52}
 tr.summary td{background:#f7faff}
 .summary .met{display:inline-flex;gap:12px;flex-wrap:wrap;align-items:center}
 .met b{font-size:15px}.met .k{font-size:11px;color:var(--muted);margin-left:3px}
@@ -84,6 +86,7 @@ input.tgt{width:135px}.past{color:var(--red);font-weight:700}
   <button class="btn alt hidden" id="linkbtn">🔗 Link OneDrive file</button>
   <button class="btn alt hidden" id="emailbtn">✉ Email due-soon</button>
   <button class="btn alt hidden" id="statusbtn">📣 Status update</button>
+  <button class="btn alt hidden" id="colsbtn">⧉ Columns</button>
   <button class="btn alt hidden" id="setbtn">⚙ Emails</button>
   <label class="status hidden" id="aslabel" style="display:inline-flex;gap:5px;align-items:center;cursor:pointer"><input type="checkbox" id="autosave"> Autosave (local)</label>
   <span class="spacer"></span>
@@ -100,6 +103,7 @@ input.tgt{width:135px}.past{color:var(--red);font-weight:700}
 </div>
 <div id="modal"></div>
 <datalist id="contacts"></datalist>
+<style id="colstyle"></style>
 <script>
 const STATUSES=["Not Started","In Progress","Blocked","Complete"];
 const PRIOS=["","P0 - Urgent","P1","P2","P3"];
@@ -134,6 +138,36 @@ const COLMAP={tasks:{deliverable:3,owner:4,stakeholders:5,status:6,priority:7,ta
               docs:{document:2,owner:4,stakeholders:5,status:6,priority:7,target:8,notes:9,link:10}};
 const DATECOL={tasks:8,pages:9,docs:8};
 let gsort={pages:null,docs:null}; // {field,dir} per grid
+let colHidden=loadColH(), colWidth=loadColW(); // per-view column show/hide + widths
+function loadColH(){try{return JSON.parse(localStorage.getItem("celona2_colhidden")||"{}");}catch(e){return{};}}
+function saveColH(){try{localStorage.setItem("celona2_colhidden",JSON.stringify(colHidden));}catch(e){}}
+function loadColW(){try{return JSON.parse(localStorage.getItem("celona2_colwidth")||"{}");}catch(e){return{};}}
+function saveColW(){try{localStorage.setItem("celona2_colwidth",JSON.stringify(colWidth));}catch(e){}}
+const VIEWLBL={cat:"By Category",due:"By Due Date",pages:"Web Pages",docs:"Documents"};
+function viewCols(){
+  if(view==="cat"||view==="due")return [[1,"ID"],[2,view==="cat"?"Deliverable":"Item"],[3,"Owner"],[4,"Stakeholders"],[5,"Status"],[6,"Priority"],[7,"Target"],[8,"Notes"],[9,"Link"]];
+  if(view==="pages")return [[1,"ID"],[2,"Page"],[3,"Section"],[4,"Bucket"],[5,"Owner"],[6,"Stakeholders"],[7,"Status"],[8,"Priority"],[9,"Target"],[10,"Notes"],[11,"Link"]];
+  return [[1,"ID"],[2,"Document"],[3,"Group"],[4,"Owner"],[5,"Stakeholders"],[6,"Status"],[7,"Priority"],[8,"Target"],[9,"Notes"],[10,"Link"]];}
+function applyColStyle(){const el=$("#colstyle");if(!el)return;const hid=colHidden[view]||[],w=colWidth[view]||{};let css="";
+  const data=i=>`#body table tr:not(.cat):not(.sub):not(.bucket):not(.summary) > :nth-child(${i})`;
+  hid.forEach(i=>{css+=`#body table thead th:nth-child(${i}),${data(i)}{display:none}`;});
+  Object.entries(w).forEach(([i,px])=>{css+=`#body table thead th:nth-child(${i}){width:${px}px;min-width:${px}px;max-width:${px}px}${data(i)}{max-width:${px}px;overflow:hidden}`;});
+  el.textContent=css;}
+function attachResizers(){const b=$("#body");if(!b)return;b.querySelectorAll("thead th").forEach(th=>{
+  const i=th.cellIndex+1;const h=document.createElement("span");h.className="resizer";
+  h.addEventListener("click",e=>e.stopPropagation());
+  h.addEventListener("mousedown",e=>{e.preventDefault();e.stopPropagation();const sx=e.clientX,sw=th.getBoundingClientRect().width;
+    const mm=ev=>{const nw=Math.max(40,Math.round(sw+(ev.clientX-sx)));(colWidth[view]=colWidth[view]||{})[i]=nw;applyColStyle();};
+    const mu=()=>{document.removeEventListener("mousemove",mm);document.removeEventListener("mouseup",mu);saveColW();};
+    document.addEventListener("mousemove",mm);document.addEventListener("mouseup",mu);});
+  th.appendChild(h);});}
+function postRender(){applyColStyle();attachResizers();}
+function columnsMenu(){const cols=viewCols();const hid=new Set(colHidden[view]||[]);
+  modal(`<h2>Columns — ${VIEWLBL[view]}</h2><p class="status">Uncheck to hide a column. Drag a column's right edge in the table to resize. Saved per-view in this browser.</p>
+    ${cols.map(([i,l])=>`<label class="prow"><input type="checkbox" data-ci="${i}" ${hid.has(i)?'':'checked'}> ${esc(l)}</label>`).join("")}
+    <div style="margin-top:12px"><button class="btn alt" id="colreset">Reset widths</button> <button class="btn" onclick="closeModal()">Done</button></div>`);
+  document.querySelectorAll("#modal input[data-ci]").forEach(cb=>cb.onchange=()=>{const i=+cb.dataset.ci;const h=new Set(colHidden[view]||[]);cb.checked?h.delete(i):h.add(i);colHidden[view]=[...h];saveColH();applyColStyle();});
+  $("#colreset").onclick=()=>{delete colWidth[view];saveColW();applyColStyle();$("#colreset").textContent="Widths reset ✓";};}
 function loadPending(){try{return JSON.parse(localStorage.getItem("celona2_pending")||"{}");}catch(e){return {};}}
 function savePending(){try{localStorage.setItem("celona2_pending",JSON.stringify(pending));}catch(e){}}
 function recordPending(ref,id,field,val){pending[`${ref}|${id}|${field}`]={ref,id,field,val};savePending();updatePubBadge();}
@@ -205,7 +239,7 @@ async function loadBuf(buf){
   const C=rowsOf("Contacts");if(C.length>1)applyContacts(C);
   if(!tasks.length&&!pages.length&&!docs.length){alert("No Tasks/Web Pages/Documents sheets found.");return;}
   dirty=false;$("#save").disabled=false;$("#fileinfo").textContent=`${fileName} · ${tasks.length} tasks · ${pages.length} pages · ${docs.length} docs`;
-  ["#cards","#viewseg","#emailbtn","#statusbtn","#setbtn","#aslabel","#pubbtn","#linkbtn","#addbtn"].forEach(s=>$(s).classList.remove("hidden"));
+  ["#cards","#viewseg","#emailbtn","#statusbtn","#colsbtn","#setbtn","#aslabel","#pubbtn","#linkbtn","#addbtn"].forEach(s=>$(s).classList.remove("hidden"));
   const asBox=$("#autosave");asBox.checked=autosave&&!!fileHandle;asBox.disabled=!fileHandle;
   try{publishHandle=await idbGet("publishFile");}catch(e){}
   refreshPublishUI();$("#intro").classList.add("hidden");render();
@@ -331,7 +365,8 @@ function cards(){const all=[...tasks,...docs,...pages.map(p=>({status:p.status,p
 /* views */
 function render(){cards();
   document.querySelectorAll("#viewseg button").forEach(b=>b.classList.toggle("on",b.dataset.v===view));
-  if(view==="cat")renderCat();else if(view==="due")renderDue();else if(view==="pages")renderGrid("pages");else renderGrid("docs");}
+  if(view==="cat")renderCat();else if(view==="due")renderDue();else if(view==="pages")renderGrid("pages");else renderGrid("docs");
+  postRender();}
 function setView(v){view=v;f={q:"",status:"",owner:"",prio:"",section:"",bucket:""};render();}
 function matchTask(t){const q=f.q.toLowerCase();
   if(f.status&&t.status!==f.status)return false;if(f.prio&&prClass(t.priority)!==f.prio)return false;
@@ -366,10 +401,11 @@ function unified(){const out=[];
   docs.forEach(d=>{if(d.target)out.push({ref:"docs",i:docs.indexOf(d),id:d.id,name:d.document,sub:"Documents › "+d.group,kind:"Doc",owner:d.owner,stakeholders:d.stakeholders,status:d.status,priority:d.priority,target:d.target,notes:d.notes,link:d.link,hasP:true});});
   pages.forEach(p=>{if(p.target)out.push({ref:"pages",i:pages.indexOf(p),id:p.id,name:p.page,sub:"Web Pages › "+p.bucket,kind:"Page",owner:p.owner,stakeholders:p.stakeholders,status:p.status,priority:p.priority,target:p.target,notes:p.notes,link:p.link,hasP:true});});
   return out;}
-function bucketOf(t){if(!isDone(t.status)&&t.target&&t.target<TODAY)return 0;
+function bucketOf(t){if(isDone(t.status))return 6;                 // completed -> bottom
+  if(t.target&&t.target<TODAY)return 0;
   if(t.target){const d=Math.round((t.target-TODAY)/864e5);if(d<=7)return 1;if(d<=14)return 2;}
-  if(!isDone(t.status)&&prRank(t.priority)<=1)return 3;if(t.target)return 4;return 5;}
-const BUCKETS=[["overdue","⛔ Overdue"],["week","🔥 Due this week"],["","📅 Next 2 weeks"],["high","⭐ High priority (P0 / P1)"],["","Later"],["","No target date"]];
+  if(prRank(t.priority)<=1)return 3;if(t.target)return 4;return 5;}
+const BUCKETS=[["overdue","⛔ Overdue"],["week","🔥 Due this week"],["","📅 Next 2 weeks"],["high","⭐ High priority (P0 / P1)"],["","Later"],["","No target date"],["done","✅ Completed"]];
 function matchU(t){const q=f.q.toLowerCase();
   if(f.status&&t.status!==f.status)return false;if(f.prio&&prClass(t.priority)!==f.prio)return false;
   if(f.owner&&!String(t.owner).toLowerCase().includes(f.owner.toLowerCase()))return false;
@@ -416,16 +452,19 @@ function renderGrid(kind){
     if(isP&&f.bucket&&o.bucket!==f.bucket)return false;if(q&&!JSON.stringify(o).toLowerCase().includes(q))return false;return true;});
   const s=gsort[kind];if(s)list=list.slice().sort((a,b)=>gridCmp(a,b,s.field,s.dir));
   let html=bar+'<table><thead><tr>'+cols.map(([lbl,fld])=>`<th data-sort="${fld}" style="cursor:pointer;white-space:nowrap">${lbl}${s&&s.field===fld?(s.dir>0?' ▲':' ▼'):''}</th>`).join("")+'</tr></thead><tbody>';
-  if(!list.length)html+=`<tr><td colspan="${cols.length}" class="empty">Nothing matches.</td></tr>`;
-  list.forEach(o=>{const i=arr.indexOf(o);
-    if(isP)html+=`<tr><td class="id">${o.id} <span class="del" data-del data-ref="pages" data-i="${i}" title="Delete">✕</span></td><td class="deliv">${eIn("pages",i,"page",o.page)}</td>
+  const gridRow=o=>{const i=arr.indexOf(o);return isP?
+    `<tr><td class="id">${o.id} <span class="del" data-del data-ref="pages" data-i="${i}" title="Delete">✕</span></td><td class="deliv">${eIn("pages",i,"page",o.page)}</td>
       <td>${esc(o.section)}</td><td>${esc(o.bucket)}</td>
       <td>${pcell("pages",i,"owner",o.owner)}</td><td>${pcell("pages",i,"stakeholders",o.stakeholders)}</td>
-      <td>${eStatus("pages",i,o.status)}</td><td>${ePrio("pages",i,o.priority)}</td><td>${eDate("pages",i,"target",o.target)}</td><td>${eIn("pages",i,"notes",o.notes)}</td><td>${eLink("pages",i,o.link)}</td></tr>`;
-    else html+=`<tr><td class="id">${o.id} <span class="del" data-del data-ref="docs" data-i="${i}" title="Delete">✕</span></td><td class="deliv">${eIn("docs",i,"document",o.document)}</td><td>${esc(o.group)}</td>
+      <td>${eStatus("pages",i,o.status)}</td><td>${ePrio("pages",i,o.priority)}</td><td>${eDate("pages",i,"target",o.target)}</td><td>${eIn("pages",i,"notes",o.notes)}</td><td>${eLink("pages",i,o.link)}</td></tr>`
+    : `<tr><td class="id">${o.id} <span class="del" data-del data-ref="docs" data-i="${i}" title="Delete">✕</span></td><td class="deliv">${eIn("docs",i,"document",o.document)}</td><td>${esc(o.group)}</td>
       <td>${pcell("docs",i,"owner",o.owner)}</td><td>${pcell("docs",i,"stakeholders",o.stakeholders)}</td>
       <td>${eStatus("docs",i,o.status)}</td><td>${ePrio("docs",i,o.priority)}</td>
-      <td>${eDate("docs",i,"target",o.target)}</td><td>${eIn("docs",i,"notes",o.notes)}</td><td>${eLink("docs",i,o.link)}</td></tr>`;});
+      <td>${eDate("docs",i,"target",o.target)}</td><td>${eIn("docs",i,"notes",o.notes)}</td><td>${eLink("docs",i,o.link)}</td></tr>`;};
+  const open=list.filter(o=>!isDone(o.status)), done=list.filter(o=>isDone(o.status));
+  if(!list.length)html+=`<tr><td colspan="${cols.length}" class="empty">Nothing matches.</td></tr>`;
+  open.forEach(o=>html+=gridRow(o));
+  if(done.length){html+=`<tr class="bucket done"><td colspan="${cols.length}">✅ Completed (${done.length})</td></tr>`;done.forEach(o=>html+=gridRow(o));}
   html+='</tbody></table>';$("#body").innerHTML=html;wireFilters();
   $("#body").querySelectorAll("th[data-sort]").forEach(th=>th.onclick=()=>{const fld=th.dataset.sort,c=gsort[kind];gsort[kind]=(c&&c.field===fld)?{field:fld,dir:-c.dir}:{field:fld,dir:1};render();});
   bind();}
@@ -578,7 +617,7 @@ function statusUpdate(){
 
 /* wire */
 $("#open").onclick=openFile;$("#reopen").onclick=reopenLast;$("#save").onclick=save;$("#addbtn").onclick=addByView;
-$("#emailbtn").onclick=emailDueSoon;$("#setbtn").onclick=emailSettings;$("#pubbtn").onclick=publish;$("#linkbtn").onclick=linkOneDrive;$("#statusbtn").onclick=statusUpdate;
+$("#emailbtn").onclick=emailDueSoon;$("#setbtn").onclick=emailSettings;$("#pubbtn").onclick=publish;$("#linkbtn").onclick=linkOneDrive;$("#statusbtn").onclick=statusUpdate;$("#colsbtn").onclick=columnsMenu;
 $("#autosave").onchange=e=>{autosave=e.target.checked;localStorage.setItem("celona2_autosave",autosave?"1":"0");if(autosave&&dirty&&fileHandle)doSave(true);};
 document.querySelectorAll("#viewseg button").forEach(b=>b.onclick=()=>setView(b.dataset.v));
 window.addEventListener("beforeunload",e=>{if(dirty){e.preventDefault();e.returnValue="";}});
