@@ -46,6 +46,7 @@ a.url{color:var(--blue);text-decoration:none}a.url:hover{text-decoration:underli
 .kind.Task{background:#e7f8f4;color:#0c7a66}.kind.Doc{background:#fff1d6;color:#8a5a00}.kind.Page{background:#e8edff;color:#33489c}.kind.Foundation{background:#ede4ff;color:#5b3a9c}
 .chip{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600}
 .c-ns{background:var(--nsbg);color:var(--ns)}.c-ip{background:var(--ipbg);color:var(--ip)}.c-bl{background:var(--blkbg);color:var(--blk)}.c-cp{background:var(--okbg);color:var(--ok)}
+.c-wc{background:#FEF0C7;color:#B54708}.c-wd1{background:#E0EAFF;color:#2F5496}.c-wd2{background:#E4DCFB;color:#5B3A9C}
 select.st,select.pr{border:none;font-weight:600;border-radius:20px;padding:3px 8px;font-size:11.5px}
 .pr.P0{background:var(--p0bg);color:var(--p0)}.pr.P1{background:var(--p1bg);color:var(--p1)}.pr.P2{background:var(--p2bg);color:var(--p2)}.pr.P3{background:var(--p3bg);color:var(--p3)}.pr.P6{background:var(--okbg);color:var(--ok)}.pr.PN{background:#fff;color:var(--muted)}
 input.cell{width:100%;border:1px solid transparent;background:transparent;padding:5px 6px;border-radius:6px}
@@ -105,7 +106,7 @@ input.tgt{width:135px}.past{color:var(--red);font-weight:700}
 <datalist id="contacts"></datalist>
 <style id="colstyle"></style>
 <script>
-const STATUSES=["Not Started","In Progress","Blocked","Complete"];
+const STATUSES=["Not Started","WIP-Copy","WIP-Design1","WIP-Design2","Complete"];
 const PRIOS=["","P0 - Urgent","P1","P2","P3","P6 - Done"];
 // Contacts are NOT embedded here (keeps this file free of personal data so it can be hosted/shared safely).
 // They load at runtime from the workbook's "Contacts" tab (Name | Email | Group). See applyContacts().
@@ -134,9 +135,9 @@ let autosave=(localStorage.getItem("celona2_autosave")==="1"),asTimer=null;
 let publishHandle=null,pending=loadPending(),pendingDel=loadDel();
 const SHEET={tasks:"Tasks",pages:"Web Pages",docs:"Documents"};
 const COLMAP={tasks:{deliverable:3,owner:4,stakeholders:5,status:6,priority:7,target:8,notes:9,link:10},
-              pages:{type:2,page:3,owner:6,stakeholders:7,status:8,priority:9,target:10,notes:11,link:12},
+              pages:{type:2,page:3,owner:5,stakeholders:6,status:7,priority:8,target:9,notes:10,link:11},
               docs:{document:2,owner:4,stakeholders:5,status:6,priority:7,target:8,notes:9,link:10}};
-const DATECOL={tasks:8,pages:10,docs:8};
+const DATECOL={tasks:8,pages:9,docs:8};
 let gsort={pages:null,docs:null}; // {field,dir} per grid
 let colHidden=loadColH(), colWidth=loadColW(); // per-view column show/hide + widths
 function loadColH(){try{return JSON.parse(localStorage.getItem("celona2_colhidden")||"{}");}catch(e){return{};}}
@@ -146,7 +147,7 @@ function saveColW(){try{localStorage.setItem("celona2_colwidth",JSON.stringify(c
 const VIEWLBL={cat:"By Category",due:"By Due Date",pages:"Web Updates",docs:"Documents"};
 function viewCols(){
   if(view==="cat"||view==="due")return [[1,"ID"],[2,view==="cat"?"Deliverable":"Item"],[3,"Owner"],[4,"Stakeholders"],[5,"Status"],[6,"Priority"],[7,"Target"],[8,"Notes"],[9,"Link"]];
-  if(view==="pages")return [[1,"ID"],[2,"Page"],[3,"Section"],[4,"Bucket"],[5,"Owner"],[6,"Stakeholders"],[7,"Status"],[8,"Priority"],[9,"Target"],[10,"Notes"],[11,"Link"]];
+  if(view==="pages")return [[1,"ID"],[2,"Page"],[3,"Section"],[4,"Owner"],[5,"Stakeholders"],[6,"Status"],[7,"Priority"],[8,"Target"],[9,"Notes"],[10,"Link"]];
   return [[1,"ID"],[2,"Document"],[3,"Group"],[4,"Owner"],[5,"Stakeholders"],[6,"Status"],[7,"Priority"],[8,"Target"],[9,"Notes"],[10,"Link"]];}
 function applyColStyle(){const el=$("#colstyle");if(!el)return;const hid=colHidden[view]||[],w=colWidth[view]||{};let css="";
   const data=i=>`#body table tr:not(.cat):not(.sub):not(.bucket):not(.summary) > :nth-child(${i})`;
@@ -202,7 +203,7 @@ const unknownNames=s=>names(s).filter(n=>{const k=n.trim().toLowerCase();return 
 function excelToDate(v){if(v instanceof Date)return v;if(typeof v==="number"){const o=XLSX.SSF.parse_date_code(v);if(o)return new Date(o.y,o.m-1,o.d);}if(typeof v==="string"&&v.trim()){const d=new Date(v);if(!isNaN(d))return d;}return null;}
 const isoD=d=>d?`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`:"";
 const niceD=d=>d?d.toLocaleDateString('en-US',{month:'short',day:'numeric'}):'—';
-const stClass=s=>({"Complete":"c-cp","Completed":"c-cp","Done":"c-cp","In Progress":"c-ip","Blocked":"c-bl"})[(s||"").trim()]||"c-ns";
+const stClass=s=>({"Complete":"c-cp","Completed":"c-cp","Done":"c-cp","WIP-Copy":"c-wc","WIP-Design1":"c-wd1","WIP-Design2":"c-wd2","In Progress":"c-ip","Blocked":"c-bl"})[(s||"").trim()]||"c-ns";
 const isDone=s=>["Complete","Completed","Done"].includes((s||"").trim());
 const prClass=p=>{const m=String(p||"").match(/P([0-6])/);return m?("P"+m[1]):"PN";};
 const prRank=p=>{const m=String(p||"").match(/P([0-6])/);return m?+m[1]:9;};
@@ -232,7 +233,7 @@ async function loadBuf(buf){
     tasks.push({id:r[0],category:r[1]||"",deliverable:r[2]||"",owner:r[3]||"",stakeholders:r[4]||"",status:(String(r[5]||"").trim()||"Not Started"),priority:String(r[6]||"").trim(),target:excelToDate(r[7]),notes:r[8]||"",link:r[9]||""});}
   const P=rowsOf("Web Pages");pages=[];
   for(let i=1;i<P.length;i++){const r=P[i];if(!r||!String(r[0]||"").trim())continue;
-    pages.push({id:r[0],type:r[1]||"Webpage",page:r[2]||"",section:r[3]||"",bucket:r[4]||"",owner:r[5]||"",stakeholders:r[6]||"",status:(String(r[7]||"").trim()||"Not Started"),priority:String(r[8]||"").trim(),target:excelToDate(r[9]),notes:r[10]||"",link:r[11]||""});}
+    pages.push({id:r[0],type:r[1]||"Webpage",page:r[2]||"",section:r[3]||"",owner:r[4]||"",stakeholders:r[5]||"",status:(String(r[6]||"").trim()||"Not Started"),priority:String(r[7]||"").trim(),target:excelToDate(r[8]),notes:r[9]||"",link:r[10]||""});}
   const D=rowsOf("Documents");docs=[];
   for(let i=1;i<D.length;i++){const r=D[i];if(!r||!String(r[0]||"").trim())continue;
     docs.push({id:r[0],document:r[1]||"",group:r[2]||"",owner:r[3]||"",stakeholders:r[4]||"",status:(String(r[5]||"").trim()||"Not Started"),priority:String(r[6]||"").trim(),target:excelToDate(r[7]),notes:r[8]||"",link:r[9]||""});}
@@ -317,7 +318,6 @@ function addPage(){fields(`<h2>Add web page</h2>
   <div class="frow"><label>Page*</label>${fIn("pp")}</div>
   <div class="frow"><label>Type</label>${fSel("pty",TYPES)}</div>
   <div class="frow"><label>Section</label>${fIn("psec")}</div>
-  <div class="frow"><label>Bucket</label>${fSel("pb",["Brand Refresh","Content + Brand Refresh","New"])}</div>
   <div class="frow"><label>Owner</label>${fIn("po","name(s)",true)}</div>
   <div class="frow"><label>Stakeholders</label>${fIn("pst","comma-separated",true)}</div>
   <div class="frow"><label>Status</label>${fSel("pss",STATUSES)}</div>
@@ -327,7 +327,7 @@ function addPage(){fields(`<h2>Add web page</h2>
   <div class="frow"><label>Link</label>${fIn("pl","SharePoint URL")}</div>`,()=>{
     const p=$("#pp").value.trim();if(!p){alert("Page required");return;}
     const id=nextId(pages,"W",3),tg=$("#ptg").value?new Date($("#ptg").value+"T00:00:00"):null;
-    const o={id,type:$("#pty").value,page:p,section:$("#psec").value.trim(),bucket:$("#pb").value,owner:$("#po").value.trim(),stakeholders:$("#pst").value.trim(),status:$("#pss").value,priority:$("#ppr").value,target:tg,notes:$("#pn").value.trim(),link:$("#pl").value.trim()};
+    const o={id,type:$("#pty").value,page:p,section:$("#psec").value.trim(),owner:$("#po").value.trim(),stakeholders:$("#pst").value.trim(),status:$("#pss").value,priority:$("#ppr").value,target:tg,notes:$("#pn").value.trim(),link:$("#pl").value.trim()};
     pages.push(o);["type","owner","stakeholders","status","priority","target","notes","link"].forEach(fl=>recordPending("pages",id,fl,fl==="target"?($("#ptg").value||""):o[fl]));
     markDirty();closeModal();view="pages";render();});}
 function addDoc(){fields(`<h2>Add document</h2>
@@ -348,14 +348,18 @@ function addDoc(){fields(`<h2>Add document</h2>
 function addByView(){view==="pages"?addPage():view==="docs"?addDoc():addTask();}
 
 /* metrics + summary */
-function metrics(arr){const m={total:arr.length,unassigned:0,assigned:0,ns:0,ip:0,bl:0,cp:0};
+function metrics(arr){const m={total:arr.length,unassigned:0,assigned:0,ns:0,ip:0,bl:0,cp:0,pastdue:0,p0:0,p1:0,p2:0};
   arr.forEach(o=>{(String(o.owner).trim()?m.assigned++:m.unassigned++);
-    if(isDone(o.status))m.cp++;else if((o.status||'').toLowerCase().includes('progress'))m.ip++;else if((o.status||'').toLowerCase().includes('block'))m.bl++;else m.ns++;});return m;}
+    const done=isDone(o.status);
+    if(done)m.cp++;else if(/^wip|progress/i.test(o.status||''))m.ip++;else if(/block/i.test(o.status||''))m.bl++;else m.ns++;
+    if(!done){if(o.target&&o.target<TODAY)m.pastdue++;const pr=prRank(o.priority);if(pr===0)m.p0++;else if(pr===1)m.p1++;else if(pr===2)m.p2++;}});return m;}
 function summaryRow(label,arr,target){const m=metrics(arr);
   return `<tr class="summary"><td colspan="9"><div class="met"><b>${label}</b>
     <span><b>${m.total}</b><span class="k">total</span></span><span><b>${m.unassigned}</b><span class="k">unassigned</span></span>
     <span><b>${m.assigned}</b><span class="k">assigned</span></span><span><b>${m.ns}</b><span class="k">not started</span></span>
     <span><b>${m.ip}</b><span class="k">in progress</span></span><span><b>${m.cp}</b><span class="k">complete</span></span>
+    <span><b style="color:#c0202e">${m.pastdue}</b><span class="k">past due</span></span>
+    <span><b>${m.p0}</b><span class="k">P0</span></span><span><b>${m.p1}</b><span class="k">P1</span></span><span><b>${m.p2}</b><span class="k">P2</span></span>
     <button class="btn sm alt" onclick="setView('${target}')" style="margin-left:auto">View details →</button></div></td></tr>`;}
 
 function cards(){const all=[...tasks,...docs,...pages.map(p=>({status:p.status,priority:""}))];
@@ -385,10 +389,12 @@ function renderCat(){
     if(cat==="Documents"){html+=`<tr class="cat"><td colspan="9">Documents</td></tr>`+summaryRow("Documents",docs,"docs");return;}
     const items=tasks.filter(t=>t.category===cat&&matchTask(t));const hasAny=tasks.some(t=>t.category===cat);
     if(!hasAny&&cat!=="Website")return;
-    html+=`<tr class="cat"><td colspan="9">${cat}</td></tr>`;
+    html+=`<tr class="cat"><td colspan="9">${cat==="Website"?"Web Updates":cat}</td></tr>`;
     items.forEach(t=>{html+=taskRow(t);});
     if(cat==="Website"){
-      html+=summaryRow("Website",pages,"pages");}
+      const wp=pages.filter(p=>p.type!=="Website-Foundation"),wf=pages.filter(p=>p.type==="Website-Foundation");
+      html+=summaryRow("Web pages",wp,"pages");
+      html+=summaryRow("Website Foundations",wf,"pages");}
   });
   // any tasks whose category isn't in CAT_ORDER (e.g. newly added)
   const extra=tasks.filter(t=>!CAT_ORDER.includes(t.category)&&matchTask(t));
@@ -403,7 +409,7 @@ function taskRow(t){const i=tasks.indexOf(t);
 function unified(){const out=[];
   tasks.forEach(t=>out.push({ref:"tasks",i:tasks.indexOf(t),id:t.id,name:t.deliverable,sub:t.category,kind:"Task",owner:t.owner,stakeholders:t.stakeholders,status:t.status,priority:t.priority,target:t.target,notes:t.notes,link:t.link,hasP:true}));
   docs.forEach(d=>{if(d.target)out.push({ref:"docs",i:docs.indexOf(d),id:d.id,name:d.document,sub:"Documents › "+d.group,kind:"Doc",owner:d.owner,stakeholders:d.stakeholders,status:d.status,priority:d.priority,target:d.target,notes:d.notes,link:d.link,hasP:true});});
-  pages.forEach(p=>{if(p.target){const isF=p.type==="Website-Foundation";out.push({ref:"pages",i:pages.indexOf(p),id:p.id,name:p.page,sub:isF?"Website-Foundation":("Web Pages › "+p.bucket),kind:isF?"Foundation":"Page",owner:p.owner,stakeholders:p.stakeholders,status:p.status,priority:p.priority,target:p.target,notes:p.notes,link:p.link,hasP:true});}});
+  pages.forEach(p=>{if(p.target){const isF=p.type==="Website-Foundation";out.push({ref:"pages",i:pages.indexOf(p),id:p.id,name:p.page,sub:isF?"Website-Foundation":"Web Pages",kind:isF?"Foundation":"Page",owner:p.owner,stakeholders:p.stakeholders,status:p.status,priority:p.priority,target:p.target,notes:p.notes,link:p.link,hasP:true});}});
   return out;}
 function bucketOf(t){if(isDone(t.status))return 6;                 // completed -> bottom
   if(t.target&&t.target<TODAY)return 0;
@@ -451,23 +457,21 @@ function renderGrid(kind){
   const isP=kind==="pages",arr=isP?pages:docs;
   // Web Updates tab shows BOTH types, grouped: Web pages first, then Website-Foundations.
   const uni=isP?pages:docs;
-  const cols=isP?[["ID","id"],["Page","page"],["Section","section"],["Bucket","bucket"],["Owner","owner"],["Stakeholders","stakeholders"],["Status","status"],["Priority","priority"],["Target","target"],["Notes","notes"],["Link","link"]]
+  const cols=isP?[["ID","id"],["Page","page"],["Section","section"],["Owner","owner"],["Stakeholders","stakeholders"],["Status","status"],["Priority","priority"],["Target","target"],["Notes","notes"],["Link","link"]]
                 :[["ID","id"],["Document","document"],["Group","group"],["Owner","owner"],["Stakeholders","stakeholders"],["Status","status"],["Priority","priority"],["Target","target"],["Notes","notes"],["Link","link"]];
   const secs=isP?[...new Set(uni.map(p=>p.section))].filter(Boolean):[...new Set(docs.map(d=>d.group))];
-  const buckets=isP?[...new Set(uni.map(p=>p.bucket))].filter(Boolean):[];
   let bar=`<div class="viewbar"><input id="q" placeholder="Search…" value="${escA(f.q)}">
     <select id="fstatus"><option value="">All statuses</option>${STATUSES.map(s=>`<option ${f.status===s?'selected':''}>${s}</option>`).join("")}</select>`;
   bar+=`<select id="fsection"><option value="">${isP?'All sections':'All groups'}</option>${secs.map(s=>`<option ${f.section===s?'selected':''}>${esc(s)}</option>`).join("")}</select>`;
-  if(isP)bar+=`<select id="fbucket"><option value="">All buckets</option>${buckets.map(s=>`<option ${f.bucket===s?'selected':''}>${esc(s)}</option>`).join("")}</select>`;
   bar+=`<span class="status">${uni.length} ${isP?'items':'documents'} · click a column to sort</span></div>`;
   let list=arr.filter(o=>{const q=f.q.toLowerCase();
     if(f.status&&o.status!==f.status)return false;if(f.section&&(isP?o.section:o.group)!==f.section)return false;
-    if(isP&&f.bucket&&o.bucket!==f.bucket)return false;if(q&&!JSON.stringify(o).toLowerCase().includes(q))return false;return true;});
+    if(q&&!JSON.stringify(o).toLowerCase().includes(q))return false;return true;});
   const s=gsort[kind];list=list.slice().sort(s?((a,b)=>gridCmp(a,b,s.field,s.dir)):committedFirst);
   let html=bar+'<table><thead><tr>'+cols.map(([lbl,fld])=>`<th data-sort="${fld}" style="cursor:pointer;white-space:nowrap">${lbl}${s&&s.field===fld?(s.dir>0?' ▲':' ▼'):''}</th>`).join("")+'</tr></thead><tbody>';
   const gridRow=o=>{const i=arr.indexOf(o);return isP?
     `<tr><td class="id">${o.id} <span class="del" data-del data-ref="pages" data-i="${i}" title="Delete">✕</span></td><td class="deliv">${eIn("pages",i,"page",o.page)}</td>
-      <td>${esc(o.section)}</td><td>${esc(o.bucket)}</td>
+      <td>${esc(o.section)}</td>
       <td>${pcell("pages",i,"owner",o.owner)}</td><td>${pcell("pages",i,"stakeholders",o.stakeholders)}</td>
       <td>${eStatus("pages",i,o.status)}</td><td>${ePrio("pages",i,o.priority)}</td><td>${eDate("pages",i,"target",o.target)}</td><td>${eIn("pages",i,"notes",o.notes)}</td><td>${eLink("pages",i,o.link)}</td></tr>`
     : `<tr><td class="id">${o.id} <span class="del" data-del data-ref="docs" data-i="${i}" title="Delete">✕</span></td><td class="deliv">${eIn("docs",i,"document",o.document)}</td><td>${esc(o.group)}</td>
@@ -488,7 +492,7 @@ function renderGrid(kind){
 
 function wireFilters(){
   const q=$("#q");if(q)q.oninput=()=>{f.q=q.value;render();setTimeout(()=>{const e=$("#q");if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}},0);};
-  ["fstatus","fprio","ftype","fsection","fbucket"].forEach(id=>{const el=$("#"+id);if(el)el.onchange=()=>{f[id.replace("f","")]=el.value;render();};});}
+  ["fstatus","fprio","ftype","fsection"].forEach(id=>{const el=$("#"+id);if(el)el.onchange=()=>{f[id.replace("f","")]=el.value;render();};});}
 
 /* save */
 function aoaDates(ws,col,n){for(let r=2;r<=n+1;r++){const c=ws[col+r];if(c&&c.t==="d")c.z="yyyy-mm-dd";}}
@@ -496,9 +500,9 @@ function buildSheets(){
   const T=[["ID","Category","Deliverable","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"]];
   tasks.forEach(t=>T.push([t.id,t.category,t.deliverable,t.owner,t.stakeholders,t.status,t.priority,t.target||"",t.notes,t.link]));
   const wsT=XLSX.utils.aoa_to_sheet(T,{cellDates:true});aoaDates(wsT,"H",tasks.length);workbook.Sheets["Tasks"]=wsT;
-  const P=[["ID","Type","Page","Section","Bucket","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"]];
-  pages.forEach(p=>P.push([p.id,p.type,p.page,p.section,p.bucket,p.owner,p.stakeholders,p.status,p.priority,p.target||"",p.notes,p.link]));
-  const wsP=XLSX.utils.aoa_to_sheet(P,{cellDates:true});aoaDates(wsP,"J",pages.length);workbook.Sheets["Web Pages"]=wsP;
+  const P=[["ID","Type","Page","Section","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"]];
+  pages.forEach(p=>P.push([p.id,p.type,p.page,p.section,p.owner,p.stakeholders,p.status,p.priority,p.target||"",p.notes,p.link]));
+  const wsP=XLSX.utils.aoa_to_sheet(P,{cellDates:true});aoaDates(wsP,"I",pages.length);workbook.Sheets["Web Pages"]=wsP;
   const D=[["ID","Document","Group","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"]];
   docs.forEach(d=>D.push([d.id,d.document,d.group,d.owner,d.stakeholders,d.status,d.priority,d.target||"",d.notes,d.link]));
   const wsD=XLSX.utils.aoa_to_sheet(D,{cellDates:true});aoaDates(wsD,"H",docs.length);workbook.Sheets["Documents"]=wsD;
@@ -523,7 +527,7 @@ async function linkOneDrive(){try{const [h]=await window.showOpenFilePicker({id:
 }catch(e){if(e.name!=="AbortError")alert("Could not link: "+e.message);}}
 function fullRow(ref,id){const o=arrFor(ref).find(x=>String(x.id)===String(id));if(!o)return null;
   if(ref==="tasks")return [o.id,o.category,o.deliverable,o.owner,o.stakeholders,o.status,o.priority,o.target||"",o.notes,o.link];
-  if(ref==="pages")return [o.id,o.type,o.page,o.section,o.bucket,o.owner,o.stakeholders,o.status,o.priority,o.target||"",o.notes,o.link];
+  if(ref==="pages")return [o.id,o.type,o.page,o.section,o.owner,o.stakeholders,o.status,o.priority,o.target||"",o.notes,o.link];
   return [o.id,o.document,o.group,o.owner,o.stakeholders,o.status,o.priority,o.target||"",o.notes,o.link];}
 async function publish(){
   if(!publishHandle){alert("Click 'Link OneDrive file' first and pick the (Working).xlsx.");return;}
@@ -534,7 +538,7 @@ async function publish(){
     $("#fileinfo").textContent=fileName+" · publishing…";
     const fl=await publishHandle.getFile();const wbW=XLSX.read(await fl.arrayBuffer(),{cellDates:true});
     const HDRS={tasks:["ID","Category","Deliverable","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"],
-                pages:["ID","Type","Page","Section","Bucket","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"],
+                pages:["ID","Type","Page","Section","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"],
                 docs:["ID","Document","Group","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"]};
     const bySheet={};Object.values(pending).forEach(p=>{(bySheet[p.ref]=bySheet[p.ref]||[]).push(p);});
     const delBy={};Object.keys(pendingDel).forEach(k=>{const[r,id]=k.split("|");(delBy[r]=delBy[r]||new Set()).add(id);});
