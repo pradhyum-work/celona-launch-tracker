@@ -80,7 +80,7 @@ input.tgt{width:135px}.past{color:var(--red);font-weight:700}
   <span class="seg hidden" id="viewseg">
     <button data-v="cat" class="on">By Category</button>
     <button data-v="due">By Due Date</button>
-    <button data-v="pages">Web Pages</button>
+    <button data-v="pages">Web Updates</button>
     <button data-v="docs">Documents</button></span>
   <button class="btn save hidden" id="pubbtn">⬆ Publish to OneDrive</button>
   <button class="btn alt hidden" id="linkbtn">🔗 Link OneDrive file</button>
@@ -143,7 +143,7 @@ function loadColH(){try{return JSON.parse(localStorage.getItem("celona2_colhidde
 function saveColH(){try{localStorage.setItem("celona2_colhidden",JSON.stringify(colHidden));}catch(e){}}
 function loadColW(){try{return JSON.parse(localStorage.getItem("celona2_colwidth")||"{}");}catch(e){return{};}}
 function saveColW(){try{localStorage.setItem("celona2_colwidth",JSON.stringify(colWidth));}catch(e){}}
-const VIEWLBL={cat:"By Category",due:"By Due Date",pages:"Web Pages",docs:"Documents"};
+const VIEWLBL={cat:"By Category",due:"By Due Date",pages:"Web Updates",docs:"Documents"};
 function viewCols(){
   if(view==="cat"||view==="due")return [[1,"ID"],[2,view==="cat"?"Deliverable":"Item"],[3,"Owner"],[4,"Stakeholders"],[5,"Status"],[6,"Priority"],[7,"Target"],[8,"Notes"],[9,"Link"]];
   if(view==="pages")return [[1,"ID"],[2,"Page"],[3,"Section"],[4,"Bucket"],[5,"Owner"],[6,"Stakeholders"],[7,"Status"],[8,"Priority"],[9,"Target"],[10,"Notes"],[11,"Link"]];
@@ -382,16 +382,13 @@ function renderCat(){
   const head='<thead><tr><th>ID</th><th>Deliverable</th><th>Owner</th><th>Stakeholders</th><th>Status</th><th>Priority</th><th>Target</th><th>Notes</th><th>Link</th></tr></thead>';
   let html=filterbar()+'<table>'+head+'<tbody>';
   CAT_ORDER.forEach(cat=>{
-    if(cat==="Documents"){html+=`<tr class="cat"><td colspan="9">Documents</td></tr>`+summaryRow("Documents",docs,"docs");
-      const wf=pages.filter(p=>p.type==="Website-Foundation");
-      html+=`<tr class="cat"><td colspan="9">Website-Foundation (${wf.length})</td></tr>`+summaryRow("Website-Foundation",wf,"due");return;}
+    if(cat==="Documents"){html+=`<tr class="cat"><td colspan="9">Documents</td></tr>`+summaryRow("Documents",docs,"docs");return;}
     const items=tasks.filter(t=>t.category===cat&&matchTask(t));const hasAny=tasks.some(t=>t.category===cat);
     if(!hasAny&&cat!=="Website")return;
     html+=`<tr class="cat"><td colspan="9">${cat}</td></tr>`;
     items.forEach(t=>{html+=taskRow(t);});
     if(cat==="Website"){
-      const wp=pages.filter(p=>p.type!=="Website-Foundation");
-      html+=`<tr class="sub"><td colspan="9">Web Pages (${wp.length})</td></tr>`+summaryRow("Web Pages",wp,"pages");}
+      html+=summaryRow("Website",pages,"pages");}
   });
   // any tasks whose category isn't in CAT_ORDER (e.g. newly added)
   const extra=tasks.filter(t=>!CAT_ORDER.includes(t.category)&&matchTask(t));
@@ -443,10 +440,17 @@ function gridCmp(a,b,field,dir){
   if(field==="id"){const n=s=>{const m=String(s).match(/\d+/);return m?+m[0]:0;};return (n(a.id)-n(b.id))*dir;}
   const x=String(a[field]==null?"":a[field]).toLowerCase(),y=String(b[field]==null?"":b[field]).toLowerCase();
   return x<y?-dir:x>y?dir:0;}
+// Default grid order: rows with a committed target date AND a priority first (soonest date, then priority); backlog after.
+function _idNum(s){const m=String(s).match(/\d+/);return m?+m[0]:0;}
+function committedFirst(a,b){
+  const ca=(a.target&&String(a.priority||"").trim())?0:1, cb=(b.target&&String(b.priority||"").trim())?0:1;
+  if(ca!==cb)return ca-cb;
+  if(ca===0){const ta=a.target.getTime(),tb=b.target.getTime();if(ta!==tb)return ta-tb;const p=prRank(a.priority)-prRank(b.priority);if(p)return p;return _idNum(a.id)-_idNum(b.id);}
+  const p=prRank(a.priority)-prRank(b.priority);if(p)return p;return _idNum(a.id)-_idNum(b.id);}
 function renderGrid(kind){
   const isP=kind==="pages",arr=isP?pages:docs;
-  // Web Pages tab shows ONLY Type=Webpage; Website-Foundation lives in By Category / By Due Date.
-  const uni=isP?pages.filter(p=>p.type!=="Website-Foundation"):docs;
+  // Web Updates tab shows BOTH types, grouped: Web pages first, then Website-Foundations.
+  const uni=isP?pages:docs;
   const cols=isP?[["ID","id"],["Page","page"],["Section","section"],["Bucket","bucket"],["Owner","owner"],["Stakeholders","stakeholders"],["Status","status"],["Priority","priority"],["Target","target"],["Notes","notes"],["Link","link"]]
                 :[["ID","id"],["Document","document"],["Group","group"],["Owner","owner"],["Stakeholders","stakeholders"],["Status","status"],["Priority","priority"],["Target","target"],["Notes","notes"],["Link","link"]];
   const secs=isP?[...new Set(uni.map(p=>p.section))].filter(Boolean):[...new Set(docs.map(d=>d.group))];
@@ -455,12 +459,11 @@ function renderGrid(kind){
     <select id="fstatus"><option value="">All statuses</option>${STATUSES.map(s=>`<option ${f.status===s?'selected':''}>${s}</option>`).join("")}</select>`;
   bar+=`<select id="fsection"><option value="">${isP?'All sections':'All groups'}</option>${secs.map(s=>`<option ${f.section===s?'selected':''}>${esc(s)}</option>`).join("")}</select>`;
   if(isP)bar+=`<select id="fbucket"><option value="">All buckets</option>${buckets.map(s=>`<option ${f.bucket===s?'selected':''}>${esc(s)}</option>`).join("")}</select>`;
-  bar+=`<span class="status">${uni.length} ${isP?'pages':'documents'} · click a column to sort</span></div>`;
+  bar+=`<span class="status">${uni.length} ${isP?'items':'documents'} · click a column to sort</span></div>`;
   let list=arr.filter(o=>{const q=f.q.toLowerCase();
-    if(isP&&o.type==="Website-Foundation")return false;
     if(f.status&&o.status!==f.status)return false;if(f.section&&(isP?o.section:o.group)!==f.section)return false;
     if(isP&&f.bucket&&o.bucket!==f.bucket)return false;if(q&&!JSON.stringify(o).toLowerCase().includes(q))return false;return true;});
-  const s=gsort[kind];if(s)list=list.slice().sort((a,b)=>gridCmp(a,b,s.field,s.dir));
+  const s=gsort[kind];list=list.slice().sort(s?((a,b)=>gridCmp(a,b,s.field,s.dir)):committedFirst);
   let html=bar+'<table><thead><tr>'+cols.map(([lbl,fld])=>`<th data-sort="${fld}" style="cursor:pointer;white-space:nowrap">${lbl}${s&&s.field===fld?(s.dir>0?' ▲':' ▼'):''}</th>`).join("")+'</tr></thead><tbody>';
   const gridRow=o=>{const i=arr.indexOf(o);return isP?
     `<tr><td class="id">${o.id} <span class="del" data-del data-ref="pages" data-i="${i}" title="Delete">✕</span></td><td class="deliv">${eIn("pages",i,"page",o.page)}</td>
@@ -471,10 +474,14 @@ function renderGrid(kind){
       <td>${pcell("docs",i,"owner",o.owner)}</td><td>${pcell("docs",i,"stakeholders",o.stakeholders)}</td>
       <td>${eStatus("docs",i,o.status)}</td><td>${ePrio("docs",i,o.priority)}</td>
       <td>${eDate("docs",i,"target",o.target)}</td><td>${eIn("docs",i,"notes",o.notes)}</td><td>${eLink("docs",i,o.link)}</td></tr>`;};
-  const open=list.filter(o=>!isDone(o.status)), done=list.filter(o=>isDone(o.status));
-  if(!list.length)html+=`<tr><td colspan="${cols.length}" class="empty">Nothing matches.</td></tr>`;
-  open.forEach(o=>html+=gridRow(o));
-  if(done.length){html+=`<tr class="bucket done"><td colspan="${cols.length}">✅ Completed (${done.length})</td></tr>`;done.forEach(o=>html+=gridRow(o));}
+  const renderOpenDone=g=>{const op=g.filter(o=>!isDone(o.status)),dn=g.filter(o=>isDone(o.status));
+    op.forEach(o=>html+=gridRow(o));
+    if(dn.length){html+=`<tr class="bucket done"><td colspan="${cols.length}">✅ Completed (${dn.length})</td></tr>`;dn.forEach(o=>html+=gridRow(o));}};
+  if(!list.length){html+=`<tr><td colspan="${cols.length}" class="empty">Nothing matches.</td></tr>`;}
+  else if(isP){
+    [["Web pages",list.filter(o=>o.type!=="Website-Foundation")],["Website-Foundations",list.filter(o=>o.type==="Website-Foundation")]]
+      .forEach(([lbl,g])=>{if(!g.length)return;html+=`<tr class="cat"><td colspan="${cols.length}">${lbl} (${g.length})</td></tr>`;renderOpenDone(g);});
+  } else { renderOpenDone(list); }
   html+='</tbody></table>';$("#body").innerHTML=html;wireFilters();
   $("#body").querySelectorAll("th[data-sort]").forEach(th=>th.onclick=()=>{const fld=th.dataset.sort,c=gsort[kind];gsort[kind]=(c&&c.field===fld)?{field:fld,dir:-c.dir}:{field:fld,dir:1};render();});
   bind();}
