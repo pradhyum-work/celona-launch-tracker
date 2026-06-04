@@ -46,7 +46,8 @@ a.url{color:var(--blue);text-decoration:none}a.url:hover{text-decoration:underli
 .kind.Task{background:#e7f8f4;color:#0c7a66}.kind.Doc{background:#fff1d6;color:#8a5a00}.kind.Page{background:#e8edff;color:#33489c}.kind.Foundation{background:#ede4ff;color:#5b3a9c}
 .chip{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600}
 .c-ns{background:var(--nsbg);color:var(--ns)}.c-ip{background:var(--ipbg);color:var(--ip)}.c-bl{background:var(--blkbg);color:var(--blk)}.c-cp{background:var(--okbg);color:var(--ok)}
-.c-wc{background:#FEF0C7;color:#B54708}.c-wd1{background:#E0EAFF;color:#2F5496}.c-wd2{background:#E4DCFB;color:#5B3A9C}
+.c-wc1{background:#FEF0C7;color:#B54708}.c-wcr{background:#FFE0B2;color:#9A3412}.c-wd1{background:#E0EAFF;color:#2F5496}.c-wdr{background:#EDE4FF;color:#5B3A9C}
+.c-wc{background:#FEF0C7;color:#B54708}.c-wd2{background:#E4DCFB;color:#5B3A9C}
 select.st,select.pr{border:none;font-weight:600;border-radius:20px;padding:3px 8px;font-size:11.5px}
 .pr.P0{background:var(--p0bg);color:var(--p0)}.pr.P1{background:var(--p1bg);color:var(--p1)}.pr.P2{background:var(--p2bg);color:var(--p2)}.pr.P3{background:var(--p3bg);color:var(--p3)}.pr.P6{background:var(--okbg);color:var(--ok)}.pr.PN{background:#fff;color:var(--muted)}
 input.cell{width:100%;border:1px solid transparent;background:transparent;padding:5px 6px;border-radius:6px}
@@ -95,9 +96,16 @@ input.tgt{width:135px}.past{color:var(--red);font-weight:700}
 </div>
 <div class="wrap">
   <div class="note" id="intro">
-    <b>Meeting workflow:</b> <b>Open tracker file</b> → your local <code>(Claude Managed).xlsx</code>. Edit freely (turn on <b>Autosave</b>) — it saves to your local copy, no contention.
-    Use <b>➕ Add</b> to add a task / web page / document, click an <b>Owner</b> or <b>Stakeholders</b> cell to pick people (multi-select), and paste a SharePoint URL in the <b>Link</b> column.
-    When ready, <b>🔗 Link OneDrive file</b> once, then <b>⬆ Publish to OneDrive</b> (merges only your changes). <b>✉ Email due-soon</b> makes Outlook .eml drafts. Addresses under <b>⚙ Emails</b>.
+    <b>Which file do I open?</b>
+    <div style="margin-top:6px"><b>👉 Everyone except Pradhyum:</b> use <b>Open tracker file</b> and pick the <b>OneDrive</b> file below. Edit, then <b>💾 Save to Excel</b>. Do <i>not</i> open a local copy.</div>
+    <div style="margin-top:4px"><b>🔒 Pradhyum only:</b> open the local <b>Claude Managed</b> file, edit with <b>Autosave</b> (no lock contention), then <b>🔗 Link OneDrive file</b> + <b>⬆ Publish to OneDrive</b> to merge <i>only your changes</i> into the shared file (others' edits preserved).</div>
+    <div style="margin-top:6px">Use <b>➕ Add</b> to add a task / web page / document, click an <b>Owner</b> or <b>Stakeholders</b> cell to pick people, and paste a SharePoint URL in the <b>Link</b> column. <b>✉ Email due-soon</b> makes Outlook .eml drafts; addresses under <b>⚙ Emails</b>.</div>
+    <div style="margin-top:10px;padding-top:8px;border-top:1px solid #ffe58f">
+      <b>📂 OneDrive file — everyone uses this</b><br>
+      <code>/Users/pramkumar/Library/CloudStorage/OneDrive-CelonaInc/SellCelona - Marketing Internal/1. Major Launches/Celona 2.0 Rebranding/Project plan/Celona 2.0 Launch Plan (Working).xlsx</code><br>
+      <b style="margin-top:4px;display:inline-block">🔒 Local file — Pradhyum only</b><br>
+      <code>/Users/pramkumar/Claude folder/Claude managed Spreadsheets/Celona 2.0 Launch Plan (Claude Managed).xlsx</code>
+    </div>
   </div>
   <div class="cards hidden" id="cards"></div>
   <div id="body"></div>
@@ -106,7 +114,7 @@ input.tgt{width:135px}.past{color:var(--red);font-weight:700}
 <datalist id="contacts"></datalist>
 <style id="colstyle"></style>
 <script>
-const STATUSES=["Not Started","WIP-Copy","WIP-Design1","WIP-Design2","Complete"];
+const STATUSES=["Not Started","WIP-Copy-1","WIP-Copy-Review","WIP-Design-1","WIP-Design-Review","Complete"];
 const PRIOS=["","P0 - Urgent","P1","P2","P3","P6 - Done"];
 // Contacts are NOT embedded here (keeps this file free of personal data so it can be hosted/shared safely).
 // They load at runtime from the workbook's "Contacts" tab (Name | Email | Group). See applyContacts().
@@ -135,7 +143,7 @@ let autosave=(localStorage.getItem("celona2_autosave")==="1"),asTimer=null;
 let publishHandle=null,pending=loadPending(),pendingDel=loadDel();
 const SHEET={tasks:"Tasks",pages:"Web Pages",docs:"Documents"};
 const COLMAP={tasks:{deliverable:3,owner:4,stakeholders:5,status:6,priority:7,target:8,notes:9,link:10},
-              pages:{type:2,page:3,owner:5,stakeholders:6,status:7,priority:8,target:9,notes:10,link:11},
+              pages:{type:2,page:3,owner:5,stakeholders:6,status:7,priority:8,target:9,notes:10,link:11,existingdoc:12,oldurl:13},
               docs:{document:2,owner:4,stakeholders:5,status:6,priority:7,target:8,notes:9,link:10}};
 const DATECOL={tasks:8,pages:9,docs:8};
 let gsort={pages:null,docs:null}; // {field,dir} per grid
@@ -147,7 +155,7 @@ function saveColW(){try{localStorage.setItem("celona2_colwidth",JSON.stringify(c
 const VIEWLBL={cat:"By Category",due:"By Due Date",pages:"Web Updates",docs:"Documents"};
 function viewCols(){
   if(view==="cat"||view==="due")return [[1,"ID"],[2,view==="cat"?"Deliverable":"Item"],[3,"Owner"],[4,"Stakeholders"],[5,"Status"],[6,"Priority"],[7,"Target"],[8,"Notes"],[9,"Link"]];
-  if(view==="pages")return [[1,"ID"],[2,"Page"],[3,"Section"],[4,"Owner"],[5,"Stakeholders"],[6,"Status"],[7,"Priority"],[8,"Target"],[9,"Notes"],[10,"Link"]];
+  if(view==="pages")return [[1,"ID"],[2,"Page"],[3,"Section"],[4,"Owner"],[5,"Stakeholders"],[6,"Status"],[7,"Priority"],[8,"Target"],[9,"Notes"],[10,"New Site Doc"],[11,"Existing Site Doc"],[12,"Old Site URL"]];
   return [[1,"ID"],[2,"Document"],[3,"Group"],[4,"Owner"],[5,"Stakeholders"],[6,"Status"],[7,"Priority"],[8,"Target"],[9,"Notes"],[10,"Link"]];}
 function applyColStyle(){const el=$("#colstyle");if(!el)return;const hid=colHidden[view]||[],w=colWidth[view]||{};let css="";
   const data=i=>`#body table tr:not(.cat):not(.sub):not(.bucket):not(.summary) > :nth-child(${i})`;
@@ -203,7 +211,7 @@ const unknownNames=s=>names(s).filter(n=>{const k=n.trim().toLowerCase();return 
 function excelToDate(v){if(v instanceof Date)return v;if(typeof v==="number"){const o=XLSX.SSF.parse_date_code(v);if(o)return new Date(o.y,o.m-1,o.d);}if(typeof v==="string"&&v.trim()){const d=new Date(v);if(!isNaN(d))return d;}return null;}
 const isoD=d=>d?`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`:"";
 const niceD=d=>d?d.toLocaleDateString('en-US',{month:'short',day:'numeric'}):'—';
-const stClass=s=>({"Complete":"c-cp","Completed":"c-cp","Done":"c-cp","WIP-Copy":"c-wc","WIP-Design1":"c-wd1","WIP-Design2":"c-wd2","In Progress":"c-ip","Blocked":"c-bl"})[(s||"").trim()]||"c-ns";
+const stClass=s=>({"Complete":"c-cp","Completed":"c-cp","Done":"c-cp","WIP-Copy-1":"c-wc1","WIP-Copy-Review":"c-wcr","WIP-Design-1":"c-wd1","WIP-Design-Review":"c-wdr","WIP-Copy":"c-wc1","WIP-Design1":"c-wd1","WIP-Design2":"c-wdr","In Progress":"c-wc1","Blocked":"c-bl"})[(s||"").trim()]||"c-ns";
 const isDone=s=>["Complete","Completed","Done"].includes((s||"").trim());
 const prClass=p=>{const m=String(p||"").match(/P([0-6])/);return m?("P"+m[1]):"PN";};
 const prRank=p=>{const m=String(p||"").match(/P([0-6])/);return m?+m[1]:9;};
@@ -233,7 +241,7 @@ async function loadBuf(buf){
     tasks.push({id:r[0],category:r[1]||"",deliverable:r[2]||"",owner:r[3]||"",stakeholders:r[4]||"",status:(String(r[5]||"").trim()||"Not Started"),priority:String(r[6]||"").trim(),target:excelToDate(r[7]),notes:r[8]||"",link:r[9]||""});}
   const P=rowsOf("Web Pages");pages=[];
   for(let i=1;i<P.length;i++){const r=P[i];if(!r||!String(r[0]||"").trim())continue;
-    pages.push({id:r[0],type:r[1]||"Webpage",page:r[2]||"",section:r[3]||"",owner:r[4]||"",stakeholders:r[5]||"",status:(String(r[6]||"").trim()||"Not Started"),priority:String(r[7]||"").trim(),target:excelToDate(r[8]),notes:r[9]||"",link:r[10]||""});}
+    pages.push({id:r[0],type:r[1]||"Webpage",page:r[2]||"",section:r[3]||"",owner:r[4]||"",stakeholders:r[5]||"",status:(String(r[6]||"").trim()||"Not Started"),priority:String(r[7]||"").trim(),target:excelToDate(r[8]),notes:r[9]||"",link:r[10]||"",existingdoc:r[11]||"",oldurl:r[12]||""});}
   const D=rowsOf("Documents");docs=[];
   for(let i=1;i<D.length;i++){const r=D[i];if(!r||!String(r[0]||"").trim())continue;
     docs.push({id:r[0],document:r[1]||"",group:r[2]||"",owner:r[3]||"",stakeholders:r[4]||"",status:(String(r[5]||"").trim()||"Not Started"),priority:String(r[6]||"").trim(),target:excelToDate(r[7]),notes:r[8]||"",link:r[9]||""});}
@@ -255,6 +263,11 @@ const TYPES=["Webpage","Website-Foundation"];
 const eType=(ref,i,v)=>`<select class="st chip c-ns" data-ref="${ref}" data-i="${i}" data-f="type">${TYPES.map(o=>`<option ${o===v?'selected':''}>${o}</option>`).join("")}</select>`;
 const pcell=(ref,i,fld,v)=>{const unk=unknownNames(v).length;return `<div class="people${unk?' unk':''}" data-pick data-ref="${ref}" data-i="${i}" data-f="${fld}" title="${unk?'Not in contacts: '+escA(unknownNames(v).join(', ')):'Click to choose people'}">${v?esc(v):'<span class=\"ph\">+ add</span>'}</div>`;};
 const eLink=(ref,i,v)=>`<div class="lnk">${v?`<a class="url" href="${escA(v)}" target="_blank" title="Open link">🔗</a>`:''}<input class="cell" data-ref="${ref}" data-i="${i}" data-f="link" value="${escA(v)}" placeholder="paste link"></div>`;
+const COPYB="https://celona.sharepoint.com/:w:/r/sites/SellCelona/Unpublished/1.%20Major%20Launches/Celona%202.0%20Rebranding/2_Website/Copy/";
+const newDocUrl=o=>o.link?COPYB+"new%20site/"+((o.status&&o.status!=="Not Started")?"Edited":"NotEdited")+"/"+encodeURIComponent(o.link)+"?web=1":"";
+const exDocUrl=o=>o.existingdoc?COPYB+"existing%20site/"+encodeURIComponent(o.existingdoc)+"?web=1":"";
+const eFileLink=(url,name)=>`<div class="lnk">${url?`<a class="url" href="${escA(url)}" target="_blank" title="Open">🔗</a> <a href="${escA(url)}" target="_blank" style="font-size:11px">${esc(name)}</a>`:'<span class="ph">—</span>'}</div>`;
+const eOldUrl=(i,v)=>`<div class="lnk">${v?`<a class="url" href="${escA(v)}" target="_blank" title="Open">🔗</a>`:''}<input class="cell" data-ref="pages" data-i="${i}" data-f="oldurl" value="${escA(v||'')}" placeholder="old URL"></div>`;
 function bind(){
   $("#body").querySelectorAll("input[data-ref], select[data-ref]").forEach(el=>{
     el.addEventListener(el.tagName==="SELECT"?"change":"input",()=>{const a=arrFor(el.dataset.ref),o=a[+el.dataset.i],fld=el.dataset.f;
@@ -324,11 +337,11 @@ function addPage(){fields(`<h2>Add web page</h2>
   <div class="frow"><label>Priority</label>${fSel("ppr",["P3","P2","P1","P0 - Urgent"])}</div>
   <div class="frow"><label>Target</label><input type="date" id="ptg"></div>
   <div class="frow"><label>Notes</label>${fIn("pn")}</div>
-  <div class="frow"><label>Link</label>${fIn("pl","SharePoint URL")}</div>`,()=>{
+  <div class="frow"><label>Old Site URL</label>${fIn("pl","old celona.io URL (optional)")}</div>`,()=>{
     const p=$("#pp").value.trim();if(!p){alert("Page required");return;}
     const id=nextId(pages,"W",3),tg=$("#ptg").value?new Date($("#ptg").value+"T00:00:00"):null;
-    const o={id,type:$("#pty").value,page:p,section:$("#psec").value.trim(),owner:$("#po").value.trim(),stakeholders:$("#pst").value.trim(),status:$("#pss").value,priority:$("#ppr").value,target:tg,notes:$("#pn").value.trim(),link:$("#pl").value.trim()};
-    pages.push(o);["type","owner","stakeholders","status","priority","target","notes","link"].forEach(fl=>recordPending("pages",id,fl,fl==="target"?($("#ptg").value||""):o[fl]));
+    const o={id,type:$("#pty").value,page:p,section:$("#psec").value.trim(),owner:$("#po").value.trim(),stakeholders:$("#pst").value.trim(),status:$("#pss").value,priority:$("#ppr").value,target:tg,notes:$("#pn").value.trim(),link:"",existingdoc:"",oldurl:$("#pl").value.trim()};
+    pages.push(o);["type","owner","stakeholders","status","priority","target","notes","oldurl"].forEach(fl=>recordPending("pages",id,fl,fl==="target"?($("#ptg").value||""):o[fl]));
     markDirty();closeModal();view="pages";render();});}
 function addDoc(){fields(`<h2>Add document</h2>
   <div class="frow"><label>Document*</label>${fIn("dd")}</div>
@@ -457,7 +470,7 @@ function renderGrid(kind){
   const isP=kind==="pages",arr=isP?pages:docs;
   // Web Updates tab shows BOTH types, grouped: Web pages first, then Website-Foundations.
   const uni=isP?pages:docs;
-  const cols=isP?[["ID","id"],["Page","page"],["Section","section"],["Owner","owner"],["Stakeholders","stakeholders"],["Status","status"],["Priority","priority"],["Target","target"],["Notes","notes"],["Link","link"]]
+  const cols=isP?[["ID","id"],["Page","page"],["Section","section"],["Owner","owner"],["Stakeholders","stakeholders"],["Status","status"],["Priority","priority"],["Target","target"],["Notes","notes"],["New Site Doc","link"],["Existing Site Doc","existingdoc"],["Old Site URL","oldurl"]]
                 :[["ID","id"],["Document","document"],["Group","group"],["Owner","owner"],["Stakeholders","stakeholders"],["Status","status"],["Priority","priority"],["Target","target"],["Notes","notes"],["Link","link"]];
   const secs=isP?[...new Set(uni.map(p=>p.section))].filter(Boolean):[...new Set(docs.map(d=>d.group))];
   let bar=`<div class="viewbar"><input id="q" placeholder="Search…" value="${escA(f.q)}">
@@ -473,7 +486,7 @@ function renderGrid(kind){
     `<tr><td class="id">${o.id} <span class="del" data-del data-ref="pages" data-i="${i}" title="Delete">✕</span></td><td class="deliv">${eIn("pages",i,"page",o.page)}</td>
       <td>${esc(o.section)}</td>
       <td>${pcell("pages",i,"owner",o.owner)}</td><td>${pcell("pages",i,"stakeholders",o.stakeholders)}</td>
-      <td>${eStatus("pages",i,o.status)}</td><td>${ePrio("pages",i,o.priority)}</td><td>${eDate("pages",i,"target",o.target)}</td><td>${eIn("pages",i,"notes",o.notes)}</td><td>${eLink("pages",i,o.link)}</td></tr>`
+      <td>${eStatus("pages",i,o.status)}</td><td>${ePrio("pages",i,o.priority)}</td><td>${eDate("pages",i,"target",o.target)}</td><td>${eIn("pages",i,"notes",o.notes)}</td><td>${eFileLink(newDocUrl(o),o.link)}</td><td>${eFileLink(exDocUrl(o),o.existingdoc)}</td><td>${eOldUrl(i,o.oldurl)}</td></tr>`
     : `<tr><td class="id">${o.id} <span class="del" data-del data-ref="docs" data-i="${i}" title="Delete">✕</span></td><td class="deliv">${eIn("docs",i,"document",o.document)}</td><td>${esc(o.group)}</td>
       <td>${pcell("docs",i,"owner",o.owner)}</td><td>${pcell("docs",i,"stakeholders",o.stakeholders)}</td>
       <td>${eStatus("docs",i,o.status)}</td><td>${ePrio("docs",i,o.priority)}</td>
@@ -500,8 +513,8 @@ function buildSheets(){
   const T=[["ID","Category","Deliverable","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"]];
   tasks.forEach(t=>T.push([t.id,t.category,t.deliverable,t.owner,t.stakeholders,t.status,t.priority,t.target||"",t.notes,t.link]));
   const wsT=XLSX.utils.aoa_to_sheet(T,{cellDates:true});aoaDates(wsT,"H",tasks.length);workbook.Sheets["Tasks"]=wsT;
-  const P=[["ID","Type","Page","Section","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"]];
-  pages.forEach(p=>P.push([p.id,p.type,p.page,p.section,p.owner,p.stakeholders,p.status,p.priority,p.target||"",p.notes,p.link]));
+  const P=[["ID","Type","Page","Section","Owner","Stakeholders","Status","Priority","Target Date","Notes","New Site Doc","Existing Site Doc","Old Site URL"]];
+  pages.forEach(p=>P.push([p.id,p.type,p.page,p.section,p.owner,p.stakeholders,p.status,p.priority,p.target||"",p.notes,p.link,p.existingdoc||"",p.oldurl||""]));
   const wsP=XLSX.utils.aoa_to_sheet(P,{cellDates:true});aoaDates(wsP,"I",pages.length);workbook.Sheets["Web Pages"]=wsP;
   const D=[["ID","Document","Group","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"]];
   docs.forEach(d=>D.push([d.id,d.document,d.group,d.owner,d.stakeholders,d.status,d.priority,d.target||"",d.notes,d.link]));
@@ -527,7 +540,7 @@ async function linkOneDrive(){try{const [h]=await window.showOpenFilePicker({id:
 }catch(e){if(e.name!=="AbortError")alert("Could not link: "+e.message);}}
 function fullRow(ref,id){const o=arrFor(ref).find(x=>String(x.id)===String(id));if(!o)return null;
   if(ref==="tasks")return [o.id,o.category,o.deliverable,o.owner,o.stakeholders,o.status,o.priority,o.target||"",o.notes,o.link];
-  if(ref==="pages")return [o.id,o.type,o.page,o.section,o.owner,o.stakeholders,o.status,o.priority,o.target||"",o.notes,o.link];
+  if(ref==="pages")return [o.id,o.type,o.page,o.section,o.owner,o.stakeholders,o.status,o.priority,o.target||"",o.notes,o.link,o.existingdoc||"",o.oldurl||""];
   return [o.id,o.document,o.group,o.owner,o.stakeholders,o.status,o.priority,o.target||"",o.notes,o.link];}
 async function publish(){
   if(!publishHandle){alert("Click 'Link OneDrive file' first and pick the (Working).xlsx.");return;}
@@ -538,7 +551,7 @@ async function publish(){
     $("#fileinfo").textContent=fileName+" · publishing…";
     const fl=await publishHandle.getFile();const wbW=XLSX.read(await fl.arrayBuffer(),{cellDates:true});
     const HDRS={tasks:["ID","Category","Deliverable","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"],
-                pages:["ID","Type","Page","Section","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"],
+                pages:["ID","Type","Page","Section","Owner","Stakeholders","Status","Priority","Target Date","Notes","New Site Doc","Existing Site Doc","Old Site URL"],
                 docs:["ID","Document","Group","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"]};
     const bySheet={};Object.values(pending).forEach(p=>{(bySheet[p.ref]=bySheet[p.ref]||[]).push(p);});
     const delBy={};Object.keys(pendingDel).forEach(k=>{const[r,id]=k.split("|");(delBy[r]=delBy[r]||new Set()).add(id);});
