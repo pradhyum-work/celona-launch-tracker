@@ -86,6 +86,7 @@ input.tgt{width:135px}.past{color:var(--red);font-weight:700}
     <button data-v="docs">Documents</button>
     <button data-v="person">By Person</button></span>
   <button class="btn save hidden" id="pubbtn">⬆ Publish to OneDrive</button>
+  <button class="btn save hidden" id="pushbtn">🌐 Push task manager to web</button>
   <button class="btn alt hidden" id="linkbtn">🔗 Link OneDrive file</button>
   <button class="btn alt hidden" id="emailbtn">✉ Email due-soon</button>
   <button class="btn alt hidden" id="statusbtn">📣 Status update</button>
@@ -250,7 +251,7 @@ async function loadBuf(buf){
   const C=rowsOf("Contacts");if(C.length>1)applyContacts(C);
   if(!tasks.length&&!pages.length&&!docs.length){alert("No Tasks/Web Pages/Documents sheets found.");return;}
   dirty=false;$("#save").disabled=false;$("#fileinfo").textContent=`${fileName} · ${tasks.length} tasks · ${pages.length} pages · ${docs.length} docs`;
-  ["#cards","#viewseg","#emailbtn","#statusbtn","#colsbtn","#setbtn","#aslabel","#pubbtn","#linkbtn","#addbtn"].forEach(s=>$(s).classList.remove("hidden"));
+  ["#cards","#viewseg","#emailbtn","#statusbtn","#colsbtn","#setbtn","#aslabel","#pubbtn","#pushbtn","#linkbtn","#addbtn"].forEach(s=>$(s).classList.remove("hidden"));
   const asBox=$("#autosave");asBox.checked=autosave&&!!fileHandle;asBox.disabled=!fileHandle;
   try{publishHandle=await idbGet("publishFile");}catch(e){}
   refreshPublishUI();$("#intro").classList.add("hidden");render();
@@ -582,7 +583,52 @@ async function doSave(quiet){if(!workbook)return;buildSheets();
 const save=()=>doSave(false);
 
 /* Link OneDrive + Publish merge */
-function refreshPublishUI(){const linked=!!publishHandle;const lb=$("#linkbtn");if(lb)lb.textContent=linked?"🔗 OneDrive linked ✓":"🔗 Link OneDrive file";const pb=$("#pubbtn");if(pb)pb.disabled=!linked;updatePubBadge();}
+function refreshPublishUI(){const linked=!!publishHandle;const lb=$("#linkbtn");if(lb)lb.textContent=linked?"🔗 OneDrive linked ✓":"🔗 Link OneDrive file";const pb=$("#pubbtn");if(pb)pb.disabled=!linked;const xb=$("#pushbtn");if(xb)xb.disabled=!linked;updatePubBadge();}
+/* Push the BY-PERSON task-manager view to the linked OneDrive Working file (admin one-click).
+   Grouped by Owner so each person finds their name and updates Status. In-browser SheetJS can't
+   emit a Status dropdown; status is free-text and the one-way sync normalizes it. Reference
+   sheets are written read-only. */
+async function pushToWeb(){
+  if(!workbook){alert("Open your Claude-managed master file first.");return;}
+  if(!publishHandle){alert("Link the OneDrive Working file first (\uD83D\uDD17 Link OneDrive file).");return;}
+  if(!confirm("Regenerate the BY-PERSON task manager and OVERWRITE the linked Working file?\nMake sure nobody has it open in Excel."))return;
+  try{
+    if(dirty&&fileHandle)await doSave(true);
+    const STAT=["Not Started","WIP-Copy-0","WIP-Copy-1","WIP-Copy-Review","WIP-Design-1","WIP-Design-Review","Complete"];
+    const HEAD=["ID","Source","Item","Collaborators","Status","Priority","Target","Notes","Resource"];
+    tasks.forEach(t=>t.__src="Tasks"); docs.forEach(d=>d.__src="Documents"); pages.forEach(p=>p.__src="Web Pages");
+    const emailOf=n=>{const c=CONTACTS.find(c=>c.n.toLowerCase()===String(n).toLowerCase());return c?c.e:"";};
+    const idnum=s=>{const m=String(s).match(/\d+/);return m?+m[0]:0;};
+    const itemRow=o=>{const item=o.deliverable||o.page||o.document||"";const url=o.__src==="Web Pages"?newDocUrl(o):(o.link||"");
+      return {row:[o.id,o.__src,item,o.stakeholders||"",o.status||"",o.priority||"",o.target||"",o.notes||"",(o.link||url||"")],url};};
+    const byPerson=list=>{
+      const by={};
+      list.forEach(o=>{let owners=String(o.owner||"").split(",").map(x=>x.trim()).filter(Boolean);if(!owners.length)owners=["(unassigned)"];owners.forEach(p=>{(by[p]=by[p]||[]).push(o);});});
+      const people=Object.keys(by).sort((a,b)=>{const ka=!!emailOf(a),kb=!!emailOf(b);if(ka!==kb)return ka?-1:1;return a.toLowerCase()<b.toLowerCase()?-1:1;});
+      const aoa=[HEAD]; const links=[];
+      people.forEach(person=>{const em=emailOf(person);aoa.push([person+(em?"   <"+em+">":""),"","","","","","","",""]);
+        by[person].slice().sort((a,b)=>((a.__src==="Web Pages"?0:1)-(b.__src==="Web Pages"?0:1))||idnum(a.id)-idnum(b.id))
+          .forEach(o=>{const ir=itemRow(o);aoa.push(ir.row);if(ir.url)links.push({r:aoa.length-1,url:ir.url});});});
+      const ws=XLSX.utils.aoa_to_sheet(aoa,{cellDates:true});
+      links.forEach(({r,url})=>{const ref=XLSX.utils.encode_cell({r,c:8});if(!ws[ref])ws[ref]={t:"s",v:url};ws[ref].l={Target:url};});
+      ws["!cols"]=[22,12,40,22,16,9,13,40,34].map(w=>({wch:w}));return ws;};
+    const tmList=[...tasks,...pages.filter(p=>p.type!=="Website-Foundation"),...docs];
+    const wfList=pages.filter(p=>p.type==="Website-Foundation");
+    const out=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(out,byPerson(tmList),"By Person");
+    XLSX.utils.book_append_sheet(out,byPerson(wfList),"Website Foundations");
+    XLSX.utils.book_append_sheet(out,XLSX.utils.aoa_to_sheet([["Status values \u2014 set Status to one of these exactly:"],...STAT.map(s=>[s])]),"Legend");
+    const saved={};
+    ["Tasks","Documents","Web Pages"].forEach(n=>{const ws=workbook.Sheets[n];if(!ws)return;
+      saved[n]=ws["!protect"];ws["!protect"]={password:"",selectLockedCells:true,selectUnlockedCells:true};
+      XLSX.utils.book_append_sheet(out,ws,n);});
+    const buf=XLSX.write(out,{bookType:"xlsx",type:"array",cellDates:true});
+    Object.keys(saved).forEach(n=>{if(saved[n]===undefined)delete workbook.Sheets[n]["!protect"];else workbook.Sheets[n]["!protect"]=saved[n];});
+    if((await publishHandle.requestPermission({mode:"readwrite"}))!=="granted"){alert("Write permission denied.");return;}
+    const w=await publishHandle.createWritable();await w.write(buf);await w.close();
+    $("#fileinfo").innerHTML=fileName+' \u00b7 <span style="color:#2e7d32">pushed by-person task manager to web \u2713</span>';
+  }catch(e){alert("Push to web failed: "+e.message+"\nIf the Working file is open in Excel, close it and try again.");}
+}
 async function linkOneDrive(){try{const [h]=await window.showOpenFilePicker({id:"celona2publish",startIn:"documents",types:[{description:"Excel",accept:{"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":[".xlsx"]}}]});
   publishHandle=h;await idbSet("publishFile",h).catch(()=>{});refreshPublishUI();$("#fileinfo").textContent=fileName+" · OneDrive file linked ✓";
 }catch(e){if(e.name!=="AbortError")alert("Could not link: "+e.message);}}
@@ -714,7 +760,7 @@ function statusUpdate(){
 
 /* wire */
 $("#open").onclick=openFile;$("#reopen").onclick=reopenLast;$("#save").onclick=save;$("#addbtn").onclick=addByView;
-$("#emailbtn").onclick=emailDueSoon;$("#setbtn").onclick=emailSettings;$("#pubbtn").onclick=publish;$("#linkbtn").onclick=linkOneDrive;$("#statusbtn").onclick=statusUpdate;$("#colsbtn").onclick=columnsMenu;
+$("#emailbtn").onclick=emailDueSoon;$("#setbtn").onclick=emailSettings;$("#pubbtn").onclick=publish;$("#pushbtn").onclick=pushToWeb;$("#linkbtn").onclick=linkOneDrive;$("#statusbtn").onclick=statusUpdate;$("#colsbtn").onclick=columnsMenu;
 $("#autosave").onchange=e=>{autosave=e.target.checked;localStorage.setItem("celona2_autosave",autosave?"1":"0");if(autosave&&dirty&&fileHandle)doSave(true);};
 document.querySelectorAll("#viewseg button").forEach(b=>b.onclick=()=>setView(b.dataset.v));
 window.addEventListener("beforeunload",e=>{if(dirty){e.preventDefault();e.returnValue="";}});
