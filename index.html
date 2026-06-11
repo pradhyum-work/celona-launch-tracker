@@ -144,7 +144,7 @@ let autosave=(localStorage.getItem("celona2_autosave")==="1"),asTimer=null;
 let publishHandle=null,pending=loadPending(),pendingDel=loadDel();
 const SHEET={tasks:"Tasks",pages:"Web Pages",docs:"Documents"};
 const COLMAP={tasks:{deliverable:3,owner:4,stakeholders:5,status:6,priority:7,target:8,notes:9,link:10},
-              pages:{type:2,page:3,owner:5,stakeholders:6,status:7,priority:8,target:9,notes:10,link:11,existingdoc:12,oldurl:13},
+              pages:{type:2,page:3,section:6,owner:7,stakeholders:8,status:9,priority:10,target:11,notes:13,link:14,existingdoc:18,oldurl:12},
               docs:{document:2,owner:4,stakeholders:5,status:6,priority:7,target:8,notes:9,link:10}};
 const DATECOL={tasks:8,pages:9,docs:8};
 let gsort={pages:null,docs:null}; // {field,dir} per grid
@@ -243,7 +243,7 @@ async function loadBuf(buf){
     tasks.push({id:r[0],category:r[1]||"",deliverable:r[2]||"",owner:r[3]||"",stakeholders:r[4]||"",status:(String(r[5]||"").trim()||"Not Started"),priority:String(r[6]||"").trim(),target:excelToDate(r[7]),notes:r[8]||"",link:r[9]||""});}
   const P=rowsOf("Web Pages");pages=[];
   for(let i=1;i<P.length;i++){const r=P[i];if(!r||!String(r[0]||"").trim())continue;
-    pages.push({id:r[0],type:r[1]||"Webpage",page:r[2]||"",section:r[3]||"",owner:r[4]||"",stakeholders:r[5]||"",status:(String(r[6]||"").trim()||"Not Started"),priority:String(r[7]||"").trim(),target:excelToDate(r[8]),notes:r[9]||"",link:r[10]||"",existingdoc:r[11]||"",oldurl:r[12]||""});}
+    pages.push({id:r[0],type:r[1]||"Webpage",page:r[2]||"",section:r[5]||"",owner:r[6]||"",stakeholders:r[7]||"",status:(String(r[8]||"").trim()||"Not Started"),priority:String(r[9]||"").trim(),target:excelToDate(r[10]),notes:r[12]||"",link:r[13]||"",existingdoc:r[17]||"",oldurl:r[11]||""});}
   const D=rowsOf("Documents");docs=[];
   for(let i=1;i<D.length;i++){const r=D[i];if(!r||!String(r[0]||"").trim())continue;
     docs.push({id:r[0],document:r[1]||"",group:r[2]||"",owner:r[3]||"",stakeholders:r[4]||"",status:(String(r[5]||"").trim()||"Not Started"),priority:String(r[6]||"").trim(),target:excelToDate(r[7]),notes:r[8]||"",link:r[9]||""});}
@@ -550,9 +550,20 @@ function buildSheets(){
   const T=[["ID","Category","Deliverable","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"]];
   tasks.forEach(t=>T.push([t.id,t.category,t.deliverable,t.owner,t.stakeholders,t.status,t.priority,t.target||"",t.notes,t.link]));
   const wsT=XLSX.utils.aoa_to_sheet(T,{cellDates:true});aoaDates(wsT,"H",tasks.length);workbook.Sheets["Tasks"]=wsT;
-  const P=[["ID","Type","Page","Section","Owner","Stakeholders","Status","Priority","Target Date","Notes","New Site Doc","Existing Site Doc","Old Site URL"]];
-  pages.forEach(p=>P.push([p.id,p.type,p.page,p.section,p.owner,p.stakeholders,p.status,p.priority,p.target||"",p.notes,p.link,p.existingdoc||"",p.oldurl||""]));
-  const wsP=XLSX.utils.aoa_to_sheet(P,{cellDates:true});aoaDates(wsP,"I",pages.length);workbook.Sheets["Web Pages"]=wsP;
+  // Web Pages is an 18-column sheet (Template Name, New page, Additional Collateral, etc.).
+  // Update only the tracked cells IN PLACE so those other columns are preserved (a full
+  // rebuild would drop them). Columns match COLMAP.pages.
+  const wsP=workbook.Sheets["Web Pages"];
+  if(wsP&&wsP['!ref']){
+    const rng=XLSX.utils.decode_range(wsP['!ref']);
+    const idRow={};
+    for(let R=rng.s.r+1;R<=rng.e.r;R++){const a=XLSX.utils.encode_cell({r:R,c:0});if(wsP[a]&&wsP[a].v!=null)idRow[String(wsP[a].v)]=R;}
+    const put=(R,col1,val,isDate)=>{const a=XLSX.utils.encode_cell({r:R,c:col1-1});
+      if(val==null||val===""){delete wsP[a];return;}
+      wsP[a]=(isDate&&val instanceof Date)?{t:'d',v:val}:{t:'s',v:String(val)};};
+    pages.forEach(p=>{const R=idRow[String(p.id)];if(R==null)return;
+      put(R,7,p.owner);put(R,8,p.stakeholders);put(R,9,p.status);put(R,10,p.priority);put(R,11,p.target,true);put(R,12,p.oldurl);put(R,13,p.notes);});
+  }
   const D=[["ID","Document","Group","Owner","Stakeholders","Status","Priority","Target Date","Notes","Link"]];
   docs.forEach(d=>D.push([d.id,d.document,d.group,d.owner,d.stakeholders,d.status,d.priority,d.target||"",d.notes,d.link]));
   const wsD=XLSX.utils.aoa_to_sheet(D,{cellDates:true});aoaDates(wsD,"H",docs.length);workbook.Sheets["Documents"]=wsD;
