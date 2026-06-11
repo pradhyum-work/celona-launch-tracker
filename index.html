@@ -266,7 +266,7 @@ const eType=(ref,i,v)=>`<select class="st chip c-ns" data-ref="${ref}" data-i="$
 const pcell=(ref,i,fld,v)=>{const unk=unknownNames(v).length;return `<div class="people${unk?' unk':''}" data-pick data-ref="${ref}" data-i="${i}" data-f="${fld}" title="${unk?'Not in contacts: '+escA(unknownNames(v).join(', ')):'Click to choose people'}">${v?esc(v):'<span class=\"ph\">+ add</span>'}</div>`;};
 const eLink=(ref,i,v)=>`<div class="lnk">${v?`<a class="url" href="${escA(v)}" target="_blank" title="Open link">🔗</a>`:''}<input class="cell" data-ref="${ref}" data-i="${i}" data-f="link" value="${escA(v)}" placeholder="paste link"></div>`;
 const COPYB="https://celona.sharepoint.com/:w:/r/sites/SellCelona/Unpublished/1.%20Major%20Launches/Celona%202.0%20Rebranding/2_Website/Copy/";
-const newDocUrl=o=>o.link?COPYB+"new%20site/"+((o.status&&o.status!=="Not Started")?"Edited":"NotEdited")+"/"+encodeURIComponent(o.link)+"?web=1":"";
+const newDocUrl=o=>o.link?COPYB+"new%20site/"+encodeURIComponent(o.link)+"?web=1":"";
 const exDocUrl=o=>o.existingdoc?COPYB+"existing%20site/"+encodeURIComponent(o.existingdoc)+"?web=1":"";
 const eFileLink=(url,name)=>`<div class="lnk">${url?`<a class="url" href="${escA(url)}" target="_blank" title="Open">🔗</a> <a href="${escA(url)}" target="_blank" style="font-size:11px">${esc(name)}</a>`:'<span class="ph">—</span>'}</div>`;
 const eOldUrl=(i,v)=>`<div class="lnk">${v?`<a class="url" href="${escA(v)}" target="_blank" title="Open">🔗</a>`:''}<input class="cell" data-ref="pages" data-i="${i}" data-f="oldurl" value="${escA(v||'')}" placeholder="old URL"></div>`;
