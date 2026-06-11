@@ -605,18 +605,22 @@ async function pushToWeb(){
       const by={};
       list.forEach(o=>{let owners=String(o.owner||"").split(",").map(x=>x.trim()).filter(Boolean);if(!owners.length)owners=["(unassigned)"];owners.forEach(p=>{(by[p]=by[p]||[]).push(o);});});
       const people=Object.keys(by).sort((a,b)=>{const ka=!!emailOf(a),kb=!!emailOf(b);if(ka!==kb)return ka?-1:1;return a.toLowerCase()<b.toLowerCase()?-1:1;});
-      const aoa=[HEAD]; const links=[];
-      people.forEach(person=>{const em=emailOf(person);aoa.push([person+(em?"   <"+em+">":""),"","","","","","","",""]);
+      const aoa=[HEAD]; const links=[]; const merges=[];
+      people.forEach(person=>{const em=emailOf(person);aoa.push([person+(em?"     <"+em+">":"     (no email on file)"),"","","","","","","",""]);
+        merges.push({s:{r:aoa.length-1,c:0},e:{r:aoa.length-1,c:8}});
         by[person].slice().sort((a,b)=>((a.__src==="Web Pages"?0:1)-(b.__src==="Web Pages"?0:1))||idnum(a.id)-idnum(b.id))
           .forEach(o=>{const ir=itemRow(o);aoa.push(ir.row);if(ir.url)links.push({r:aoa.length-1,url:ir.url});});});
       const ws=XLSX.utils.aoa_to_sheet(aoa,{cellDates:true});
       links.forEach(({r,url})=>{const ref=XLSX.utils.encode_cell({r,c:8});if(!ws[ref])ws[ref]={t:"s",v:url};ws[ref].l={Target:url};});
-      ws["!cols"]=[22,12,40,22,16,9,13,40,34].map(w=>({wch:w}));return ws;};
+      const rng=XLSX.utils.decode_range(ws["!ref"]);
+      for(let r=1;r<=rng.e.r;r++){const ref=XLSX.utils.encode_cell({r,c:6});if(ws[ref]&&ws[ref].t==="d")ws[ref].z="mm/dd/yy";}
+      ws["!cols"]=[9,13,40,24,16,9,11,46,30].map(w=>({wch:w}));
+      ws["!merges"]=merges;return ws;};
     const tmList=[...tasks,...pages.filter(p=>p.type!=="Website-Foundation"),...docs];
     const wfList=pages.filter(p=>p.type==="Website-Foundation");
     const out=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(out,byPerson(tmList),"By Person");
-    XLSX.utils.book_append_sheet(out,byPerson(wfList),"Website Foundations");
+    const wfWs=byPerson(wfList); wfWs["!protect"]={password:"",selectLockedCells:true,selectUnlockedCells:true}; XLSX.utils.book_append_sheet(out,wfWs,"Website Foundations");
     XLSX.utils.book_append_sheet(out,XLSX.utils.aoa_to_sheet([["Status values \u2014 set Status to one of these exactly:"],...STAT.map(s=>[s])]),"Legend");
     const saved={};
     ["Tasks","Documents","Web Pages"].forEach(n=>{const ws=workbook.Sheets[n];if(!ws)return;
